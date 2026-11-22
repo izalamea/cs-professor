@@ -1498,7 +1498,7 @@ const CHANGE_PROMPT = `[Draft a change request] Here is a change I want, in my o
 «QUESTION»
 
 Read the relevant code first. Then answer in three parts:
-1. **How it works today**: the exact files, functions (with \`path:line\`) and data flow behind what I described, and the root cause of the behavior I want to change. Use the precise technical terms (name the pattern, algorithm or cost involved).
+1. **How it works today**: the files, functions (with \`path:line\`) and data flow behind what I described, and what causes the behavior I want to change. Only what you verified in the code; say what you didn't check.
 2. **Options**: one to three concrete ways to make the change, each with its trade-offs (complexity, performance, risk, what else it touches). Recommend one.
 3. **The request**: for the recommended option, a self-contained instruction for a coding agent that hasn't seen this conversation, in a fenced block that starts with \`\`\`request. Write it in the imperative. Include: the goal in one sentence; which files and functions to change and how; the invariants and existing behavior to preserve; edge cases; and how to verify it (tests to add or run, what to check by hand). Add code only where a short snippet removes ambiguity.
 
