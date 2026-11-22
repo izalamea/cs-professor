@@ -41,3 +41,5 @@ uses, so "where is this defined" is exact. Other languages go through their lang
 the repo, with only the Read, Grep and Glob tools, streaming the answer back. It uses your
 Claude Code login. The server only listens on 127.0.0.1, and every API call needs a random
 token that the server embeds in the page.
+
+License: MIT (see `LICENSE`).
