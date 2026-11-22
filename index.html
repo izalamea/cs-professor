@@ -1,0 +1,1653 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>coderead</title>
+<style>
+:root {
+  --bg: #fbfbfa; --bg2: #f3f3f1; --bg3: #e9e9e6; --line: #dcdcd8; --fg: #1f2328; --fg2: #59636e; --fg3: #8b949e;
+  --accent: #0b6bcb; --accent-bg: #e3effb; --sel: #fff3c4; --flash: #ffe98a; --danger: #c62828;
+  --k: #a626a4; --s: #2a7e3b; --n: #b35900; --c: #7c8591; --o: #59636e; --i: #1f2328;
+  --ty: #0e7c86; --fn: #3a5ccc; --fld: #8a4b08; --pk: #9a3412; --bi: #a626a4;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+  --side: 260px; --chat: 430px; --lh: 20px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15171a; --bg2: #1b1e22; --bg3: #23272d; --line: #2e333a; --fg: #e3e6ea; --fg2: #a2aab4; --fg3: #6e7681;
+    --accent: #6cb6ff; --accent-bg: #1c2b3c; --sel: #3a3420; --flash: #5a4c14; --danger: #ff7b72;
+    --k: #d08bdc; --s: #8fcf8a; --n: #f0a45d; --c: #6e7681; --o: #a2aab4; --i: #e3e6ea;
+    --ty: #5fd0d8; --fn: #8ab4ff; --fld: #e8b77a; --pk: #f59e7a; --bi: #d08bdc;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--fg); font: 13px/1.45 var(--sans); overflow: hidden; }
+button { font: inherit; color: inherit; background: var(--bg2); border: 1px solid var(--line); border-radius: 6px; padding: 3px 9px; cursor: pointer; }
+button:hover { background: var(--bg3); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.ghost { background: none; border-color: transparent; }
+button.ghost:hover { background: var(--bg3); }
+input, textarea, select { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
+input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+code, pre { font-family: var(--mono); }
+a { color: var(--accent); }
+
+#app { display: grid; grid-template-rows: 40px 1fr; height: 100vh; }
+header { display: flex; align-items: center; gap: 8px; padding: 0 10px; border-bottom: 1px solid var(--line); background: var(--bg2); min-width: 0; }
+.logo { font-weight: 700; letter-spacing: -.02em; }
+.logo span { color: var(--accent); }
+#repoBtn { font-weight: 600; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#crumbs { flex: 1; min-width: 0; font: 12px var(--mono); color: var(--fg2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+#crumbs bdi { direction: ltr; }
+.nav button { padding: 2px 8px; }
+.nav button:disabled { opacity: .35; cursor: default; }
+
+main { display: grid; grid-template-columns: var(--side) 4px 1fr 4px var(--chat); min-height: 0; }
+.resizer { cursor: col-resize; background: var(--line); opacity: .5; }
+.resizer:hover, .resizer.drag { background: var(--accent); opacity: 1; }
+
+/* sidebar */
+#side { display: flex; flex-direction: column; min-height: 0; background: var(--bg2); }
+.tabs { display: flex; gap: 2px; padding: 6px 6px 0; border-bottom: 1px solid var(--line); }
+.tabs button { border: none; border-radius: 6px 6px 0 0; background: none; color: var(--fg2); padding: 5px 10px; }
+.tabs button.on { background: var(--bg); color: var(--fg); box-shadow: 0 1px 0 var(--bg); font-weight: 600; }
+.pane { flex: 1; min-height: 0; overflow: auto; display: none; }
+.pane.on { display: block; }
+.pane-head { position: sticky; top: 0; padding: 8px; background: var(--bg2); z-index: 1; }
+.pane-head input { width: 100%; }
+.tr { padding: 2px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; border-radius: 4px; margin: 0 4px; }
+.tr:hover { background: var(--bg3); }
+.tr.cur { background: var(--accent-bg); color: var(--accent); font-weight: 600; }
+.tr .tw { display: inline-block; width: 14px; color: var(--fg3); }
+.tr.dir { color: var(--fg2); }
+.tr small { color: var(--fg3); }
+.ol-k { display: inline-block; width: 18px; font: 600 10px var(--mono); color: var(--fg3); }
+.ol-k.type { color: var(--ty); } .ol-k.func, .ol-k.method { color: var(--fn); } .ol-k.const, .ol-k.var { color: var(--fld); }
+.hit-file { padding: 6px 12px 2px; font-weight: 600; font-size: 12px; color: var(--fg2); }
+.hit { padding: 2px 12px 2px 20px; font: 12px var(--mono); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hit:hover { background: var(--bg3); }
+.hit b { color: var(--fg3); font-weight: 400; margin-right: 6px; }
+.muted { color: var(--fg3); padding: 10px 12px; }
+
+/* code */
+#codeCol { display: flex; flex-direction: column; min-width: 0; min-height: 0; position: relative; }
+#code { flex: 1; overflow: auto; font: 12.5px/var(--lh) var(--mono); padding: 6px 0 40vh; tab-size: 4; }
+.line { display: flex; min-width: max-content; }
+.line.sel { background: var(--sel); }
+.line.flash { animation: flash 1.6s ease-out; }
+@keyframes flash { from { background: var(--flash); } to { background: transparent; } }
+.ln { position: sticky; left: 0; flex: none; width: 56px; padding-right: 14px; text-align: right; color: var(--fg3); background: var(--bg); user-select: none; cursor: pointer; }
+.line.sel .ln { background: var(--sel); color: var(--fg); }
+.ln:hover { color: var(--accent); }
+.lc { white-space: pre; padding-right: 24px; }
+.k { color: var(--k); } .s { color: var(--s); } .n { color: var(--n); } .c { color: var(--c); font-style: italic; }
+.o { color: var(--o); } .i { color: var(--i); }
+.i-type { color: var(--ty); } .i-func, .i-method { color: var(--fn); } .i-field { color: var(--fld); } .i-pkg, .i-ext { color: var(--pk); }
+.b { color: var(--bi); }
+.def { font-weight: 600; }
+.x { cursor: pointer; border-radius: 3px; }
+.x:hover { background: var(--accent-bg); text-decoration: underline; text-decoration-color: var(--fg3); text-underline-offset: 3px; }
+.x.active { background: var(--accent-bg); outline: 1px solid var(--accent); }
+#selbar { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); display: none; gap: 6px; align-items: center; padding: 6px 8px 6px 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 6px 24px rgba(0,0,0,.18); white-space: nowrap; z-index: 5; }
+#selbar.on { display: flex; }
+.welcome { max-width: 640px; margin: 40px auto; padding: 0 24px; font: 14px/1.6 var(--sans); }
+.welcome h1 { font-size: 22px; letter-spacing: -.02em; }
+.welcome kbd, .help kbd { font: 11px var(--mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--bg2); }
+.welcome li { margin: 4px 0; }
+.note { margin: 8px 12px; padding: 6px 10px; border-radius: 6px; background: var(--bg2); color: var(--fg2); font: 12px var(--sans); }
+.loading { padding: 24px; color: var(--fg2); }
+
+/* markdown preview */
+#viewbar { display: none; justify-content: flex-end; padding: 6px 12px; border-bottom: 1px solid var(--line); background: var(--bg); }
+#viewbar.on { display: flex; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+.seg button { border: none; border-radius: 0; background: none; padding: 2px 12px; color: var(--fg2); font-size: 12px; }
+.seg button.on { background: var(--accent-bg); color: var(--accent); font-weight: 600; }
+#code:has(.mdview) { padding-top: 0; }
+.mdview { max-width: 820px; margin: 0 auto; padding: 24px 32px 0; font: 15px/1.65 var(--sans); color: var(--fg); white-space: normal; }
+.mdview > :first-child { margin-top: 0; }
+.mdview h1, .mdview h2, .mdview h3, .mdview h4, .mdview h5, .mdview h6 { line-height: 1.25; margin: 1.6em 0 .6em; letter-spacing: -.01em; scroll-margin-top: 12px; }
+.mdview h1 { font-size: 2em; padding-bottom: .3em; border-bottom: 1px solid var(--line); }
+.mdview h2 { font-size: 1.45em; padding-bottom: .25em; border-bottom: 1px solid var(--line); }
+.mdview h3 { font-size: 1.2em; } .mdview h4 { font-size: 1.05em; } .mdview h5, .mdview h6 { font-size: .95em; color: var(--fg2); }
+.mdview p { margin: 0 0 1em; }
+.mdview ul, .mdview ol { margin: 0 0 1em; padding-left: 1.6em; }
+.mdview li { margin: .25em 0; }
+.mdview li.task { list-style: none; margin-left: -1.3em; }
+.mdview code { font: .86em var(--mono); background: var(--bg2); padding: .15em .35em; border-radius: 4px; }
+.mdview pre { background: var(--bg2); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; overflow: auto; font: 13px/1.5 var(--mono); margin: 0 0 1em; }
+.mdview pre code { background: none; padding: 0; font-size: inherit; }
+.mdview blockquote { margin: 0 0 1em; padding: .1em 1em; border-left: 4px solid var(--line); color: var(--fg2); }
+.mdview table { border-collapse: collapse; margin: 0 0 1em; display: block; overflow: auto; font-size: 14px; }
+.mdview th, .mdview td { border: 1px solid var(--line); padding: 6px 12px; text-align: left; }
+.mdview th { background: var(--bg2); }
+.mdview tr:nth-child(even) td { background: color-mix(in srgb, var(--bg2) 50%, transparent); }
+.mdview img { max-width: 100%; vertical-align: middle; }
+.mdview hr { border: none; border-top: 1px solid var(--line); margin: 2em 0; }
+.mdview a.anchor { cursor: pointer; color: var(--accent); }
+.nb-cell { margin: 0 0 1.2em; }
+.nb-in { font: 11px var(--mono); color: var(--fg3); margin-bottom: 2px; }
+.nb-cell > pre { margin-bottom: 4px; }
+.nb-out { font: 12.5px/1.45 var(--mono); white-space: pre-wrap; margin: 0 0 4px; padding: 6px 14px; border-left: 3px solid var(--line); background: none; border-radius: 0; max-height: 360px; overflow: auto; }
+.nb-img { display: block; max-width: 100%; margin: 6px 0; background: #fff; border-radius: 4px; }
+.mdview a.ref { border-bottom: none; color: var(--accent); }
+.mdview a.ref:hover, .mdview a.anchor:hover { text-decoration: underline; }
+
+/* popover */
+#pop { position: fixed; z-index: 20; width: 480px; max-width: calc(100vw - 24px); max-height: 70vh; overflow: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 40px rgba(0,0,0,.25); display: none; }
+#pop.on { display: block; }
+.pop-h { display: flex; align-items: center; gap: 8px; padding: 10px 12px 4px; }
+.pop-h code { font-size: 14px; font-weight: 700; }
+.pop-h .x-close { margin-left: auto; }
+.badge { font: 600 10px var(--sans); text-transform: uppercase; letter-spacing: .05em; padding: 2px 6px; border-radius: 4px; background: var(--bg3); color: var(--fg2); }
+.badge.type { color: var(--ty); } .badge.func, .badge.method { color: var(--fn); } .badge.field, .badge.var, .badge.const { color: var(--fld); } .badge.pkg, .badge.ext { color: var(--pk); } .badge.builtin, .badge.keyword { color: var(--k); }
+.pop-b { padding: 4px 12px 10px; }
+.pop-t { font: 12px var(--mono); color: var(--fg2); word-break: break-word; margin-bottom: 6px; }
+.pop-row { margin: 6px 0; }
+.pop-doc { white-space: pre-wrap; margin: 8px 0; color: var(--fg); font-size: 12.5px; }
+.pop pre, #pop pre { margin: 8px 0; padding: 8px 10px; background: var(--bg2); border-radius: 6px; font: 12px/1.5 var(--mono); overflow: auto; max-height: 260px; }
+.pop-sec { margin-top: 8px; }
+.pop-sec summary { cursor: pointer; font-weight: 600; color: var(--fg2); font-size: 12px; }
+.mrow { font: 12px var(--mono); padding: 2px 4px; border-radius: 4px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mrow:hover { background: var(--bg3); }
+.mrow .dim { color: var(--fg3); }
+.loc { font: 12px var(--mono); cursor: pointer; color: var(--accent); }
+.loc:hover { text-decoration: underline; }
+.qs { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+.qs button { font-size: 12px; border-radius: 12px; padding: 2px 10px; background: var(--accent-bg); border-color: transparent; color: var(--accent); }
+.qs button:hover { border-color: var(--accent); }
+.pop-hover { font-size: 12.5px; margin: 4px 0 8px; max-height: 260px; overflow: auto; }
+.pop-hover p { margin: 0 0 6px; } .pop-hover hr { border: none; border-top: 1px solid var(--line); margin: 6px 0; }
+.pop-hover pre { margin: 4px 0; } .pop-hover h3 { font-size: 13px; margin: 0 0 4px; }
+.pop-ask { display: flex; gap: 6px; margin-top: 8px; }
+.pop-ask input { flex: 1; }
+.expl { font-size: 12.5px; margin: 6px 0; }
+
+/* chat */
+#chat { position: relative; display: flex; flex-direction: column; min-height: 0; background: var(--bg); }
+.chat-h { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--line); background: var(--bg2); }
+.chat-h b { margin-right: auto; }
+.chat-h select { padding: 2px 4px; font-size: 12px; }
+#msgs { flex: 1; overflow: auto; padding: 12px; overflow-anchor: none; }
+#jump { display: none; position: absolute; right: 18px; bottom: 120px; z-index: 5; border-radius: 14px; padding: 3px 12px; font-size: 12px;
+  background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent); box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+#jump.on { display: block; }
+.msg { margin-bottom: 14px; }
+.msg.user { background: var(--accent-bg); border-radius: 10px; padding: 8px 10px; margin-left: 24px; white-space: pre-wrap; }
+.msg.user .ctx { display: block; font: 11px var(--mono); color: var(--fg2); margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.msg.assistant { font-size: 13.5px; line-height: 1.55; }
+.msg.assistant p { margin: 0 0 8px; }
+.msg.assistant h1, .msg.assistant h2, .msg.assistant h3, .msg.assistant h4 { font-size: 14px; margin: 12px 0 6px; }
+.msg.assistant ul, .msg.assistant ol { margin: 0 0 8px; padding-left: 20px; }
+.msg.assistant li { margin: 2px 0; }
+.msg.assistant code { font-size: 12px; background: var(--bg2); padding: 1px 4px; border-radius: 4px; }
+.msg.assistant pre { background: var(--bg2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; overflow: auto; font-size: 12px; line-height: 1.5; margin: 6px 0 10px; }
+.msg.assistant pre code { background: none; padding: 0; }
+.msg.assistant blockquote { margin: 0 0 8px; padding-left: 10px; border-left: 3px solid var(--line); color: var(--fg2); }
+.msg.assistant table { border-collapse: collapse; margin: 6px 0 10px; font-size: 12px; }
+.msg.assistant th, .msg.assistant td { border: 1px solid var(--line); padding: 3px 6px; text-align: left; }
+a.ref { cursor: pointer; text-decoration: none; border-bottom: 1px dotted var(--accent); }
+a.ref:hover { border-bottom-style: solid; }
+.tools { font: 11.5px var(--mono); color: var(--fg3); margin-bottom: 6px; }
+.tools div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.err { color: var(--danger); font-size: 12.5px; white-space: pre-wrap; }
+.dots::after { content: "…"; animation: dots 1.2s steps(4) infinite; display: inline-block; width: 1.2em; overflow: hidden; vertical-align: bottom; }
+@keyframes dots { from { width: 0; } to { width: 1.2em; } }
+.empty-chat { color: var(--fg2); padding: 8px 4px; font-size: 13px; }
+.empty-chat li { margin: 4px 0; }
+.composer { border-top: 1px solid var(--line); padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.chip { align-self: flex-start; display: inline-flex; gap: 6px; align-items: center; font: 11.5px var(--mono); background: var(--accent-bg); color: var(--accent); border-radius: 12px; padding: 2px 4px 2px 10px; max-width: 100%; }
+.chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip button { border: none; background: none; padding: 0 6px; color: inherit; }
+.modes { display: flex; gap: 0; align-items: center; }
+.modes button { font-size: 11.5px; padding: 2px 10px; border-radius: 0; }
+.modes button:first-child { border-radius: 6px 0 0 6px; }
+.modes button:nth-child(2) { border-radius: 0 6px 6px 0; margin-left: -1px; }
+.modes button.on { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); }
+.modes .help { margin-left: 8px; font-size: 11px; }
+.req { border: 1px solid var(--accent); border-radius: 8px; margin: 10px 0; overflow: hidden; }
+.req-h { display: flex; align-items: center; gap: 8px; padding: 4px 8px; background: var(--accent-bg); color: var(--accent); font-size: 12px; font-weight: 600; }
+.req-h button { margin-left: auto; font-size: 11.5px; padding: 1px 10px; }
+.req pre { margin: 0; border: 0; border-radius: 0; white-space: pre-wrap; font: 12.5px/1.5 var(--mono); }
+.msg-acts { margin-top: 6px; }
+.msg-acts button { font-size: 11.5px; padding: 2px 8px; }
+.crow { display: flex; gap: 6px; align-items: flex-end; }
+#q { flex: 1; resize: none; min-height: 38px; max-height: 200px; }
+
+/* modal */
+#modal { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: none; align-items: center; justify-content: center; z-index: 30; }
+#modal.on { display: flex; }
+.dlg { width: 620px; max-width: calc(100vw - 32px); max-height: calc(100vh - 64px); display: flex; flex-direction: column; background: var(--bg); border-radius: 12px; border: 1px solid var(--line); box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+.dlg h2 { margin: 0; padding: 14px 16px 6px; font-size: 16px; }
+.dlg .row { display: flex; gap: 6px; padding: 6px 16px; }
+.dlg .row input { flex: 1; font-family: var(--mono); font-size: 12px; }
+#dirList { flex: 1; overflow: auto; margin: 4px 16px; border: 1px solid var(--line); border-radius: 8px; min-height: 200px; }
+.de { display: flex; align-items: center; gap: 8px; padding: 4px 10px; cursor: pointer; }
+.de:hover { background: var(--bg2); }
+.de .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.de .tag { font: 600 10px var(--sans); color: var(--fg3); }
+.de .tag.go { color: var(--ty); }
+.de button { padding: 0 8px; font-size: 12px; }
+.recent { padding: 6px 16px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; color: var(--fg2); font-size: 12px; }
+.recent button { font: 11.5px var(--mono); }
+.dlg .actions { display: flex; gap: 6px; padding: 10px 16px 14px; align-items: center; }
+.dlg .actions .sp { flex: 1; }
+.help { font-size: 12px; color: var(--fg2); }
+
+@media (max-width: 900px) {
+  main { grid-template-columns: 1fr; grid-template-rows: 30vh 45vh 1fr; overflow: auto; }
+  .resizer { display: none; }
+  #chat { min-height: 50vh; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo">code<span>read</span></div>
+    <button id="repoBtn" title="Open another repository">Open repo…</button>
+    <div class="nav"><button id="backBtn" disabled title="Back (Alt+←)">←</button><button id="fwdBtn" disabled title="Forward (Alt+→)">→</button></div>
+    <div id="crumbs"></div>
+  </header>
+  <main>
+    <aside id="side">
+      <div class="tabs">
+        <button data-tab="files" class="on">Files</button>
+        <button data-tab="outline">Outline</button>
+        <button data-tab="search">Search</button>
+      </div>
+      <div class="pane on" id="pane-files">
+        <div class="pane-head"><input id="filter" placeholder="Filter files  (⌘P)"></div>
+        <div id="tree"></div>
+      </div>
+      <div class="pane" id="pane-outline"><div id="outline"></div></div>
+      <div class="pane" id="pane-search">
+        <div class="pane-head"><input id="searchQ" placeholder="Search the repo  (⌘⇧F)"></div>
+        <div id="hits"></div>
+      </div>
+    </aside>
+    <div class="resizer" data-r="side"></div>
+    <section id="codeCol">
+      <div id="viewbar"></div>
+      <div id="code"></div>
+      <div id="selbar"></div>
+    </section>
+    <div class="resizer" data-r="chat"></div>
+    <aside id="chat">
+      <div class="chat-h">
+        <b>Tutor</b>
+        <select id="model" title="Model">
+          <option value="sonnet">Sonnet</option>
+          <option value="opus">Opus</option>
+          <option value="fable">Fable</option>
+          <option value="haiku">Haiku</option>
+        </select>
+        <select id="effort" title="How long it thinks">
+          <option value="low">Fast</option>
+          <option value="medium">Balanced</option>
+          <option value="high">Deep</option>
+        </select>
+        <button id="newChat" class="ghost" title="Start a new conversation">New chat</button>
+      </div>
+      <div id="msgs"></div>
+      <button id="jump" title="Scroll to the end">↓</button>
+      <div class="composer">
+        <div class="modes"><button data-mode="ask" title="Questions about how the code works">Ask</button><button data-mode="change" title="Describe a change in your own words; get a precise request to hand to a coding agent">Draft change</button><span id="modeHelp" class="help"></span></div>
+        <div id="chipBox"></div>
+        <div class="crow">
+          <textarea id="q" rows="1" placeholder="Ask about this code…  (Enter to send)"></textarea>
+          <button id="sendBtn" class="primary">Ask</button>
+        </div>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<div id="pop"></div>
+
+<div id="modal">
+  <div class="dlg">
+    <h2>Open a repository</h2>
+    <div class="row"><input id="dirInput" spellcheck="false"><button id="dirGo">Go</button></div>
+    <div id="dirList"></div>
+    <div class="recent" id="recent"></div>
+    <div class="actions">
+      <button id="dirUp">↑ Parent</button>
+      <span class="sp help">Click a folder to enter it.</span>
+      <button id="dirCancel">Cancel</button>
+      <button id="dirOpen" class="primary">Open this folder</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/*BOOT*/
+"use strict";
+const B = window.BOOT || {};
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("coderead:" + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("coderead:" + k, JSON.stringify(v)); } catch {} },
+};
+
+async function api(path, params = {}) {
+  const u = new URL(path, location.href);
+  for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v);
+  const r = await fetch(u, { headers: { "X-Token": B.token } });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+
+const S = {
+  root: "", name: "", files: [], fileSet: new Set(), open: new Set(),
+  cur: null, back: [], fwd: [], sel: null, chip: null,
+  chat: { session: "", msgs: [] }, busy: false, abort: null,
+};
+
+/* ------------------------------------------------------------------ Go explanations */
+
+const GO_DOC = {
+  "package": "Every Go file starts with `package name`. All files in one folder form one package; the package is the unit of compilation and of visibility. `package main` makes an executable.",
+  "import": "Brings other packages into this file. You refer to their exported (Capitalized) names as `pkg.Name`. Unused imports are a compile error.",
+  "func": "Declares a function, or a method when there's a receiver: `func (h *Handler) Name(...)`. Functions are values too: you can store and pass them, and write closures.",
+  "type": "Declares a new named type: `type T struct{...}`, `type I interface{...}`, `type ID string`. `type A = B` (with =) declares an alias instead.",
+  "struct": "A struct groups named fields. Go has no classes: you define a struct and attach methods to it. Embedding a type (a field with no name) promotes its fields and methods.",
+  "interface": "An interface is a set of method signatures. Any type that has those methods satisfies it automatically. There's no `implements` keyword. `any` is `interface{}`.",
+  "map": "A built-in hash table: `map[K]V`. Create it with `make` or a literal before writing. `v, ok := m[k]` tells you whether the key exists. Iteration order is random.",
+  "chan": "A channel passes values between goroutines: `ch <- v` sends, `v := <-ch` receives. Unbuffered channels synchronize sender and receiver. `close(ch)` signals no more values.",
+  "var": "Declares variables. Every variable starts at its type's zero value (0, \"\", nil, false...). Inside functions, `x := v` is the usual short form.",
+  "const": "Declares compile-time constants. Untyped constants like `const n = 5` adapt to the context they're used in. `iota` numbers constants in a block.",
+  "if": "`if` can begin with a short statement: `if err := f(); err != nil { ... }`. The variable is scoped to the if/else. No parentheses; braces are required.",
+  "else": "The alternative branch of an if. Idiomatic Go avoids else after a return, so the main path stays unindented.",
+  "for": "Go's only loop. `for i := 0; i < n; i++`, `for cond`, `for { }` (forever), and `for k, v := range x`. Since Go 1.22 each iteration gets its own loop variable.",
+  "range": "Iterates over slices, arrays, strings (by rune), maps, channels, integers (`range 10`), and iterator functions. It yields index/key and value.",
+  "switch": "A cleaner if-else chain. Cases don't fall through (no `break` needed). `switch { case x > 0: ... }` works without a value. A type switch is `switch v := x.(type)`.",
+  "case": "One branch of a switch or select. It can list several values: `case 1, 2, 3:`.",
+  "default": "The branch that runs when no other case of a switch/select matches. In a select, default makes it non-blocking.",
+  "fallthrough": "Explicitly continues into the next case of a switch, which Go doesn't do by default.",
+  "select": "Waits on several channel operations at once and runs whichever is ready first. Often used with timeouts and `ctx.Done()`.",
+  "go": "`go f(x)` starts f in a new goroutine, a very cheap concurrent function, and returns immediately. Use channels, sync.WaitGroup or errgroup to wait for it.",
+  "defer": "Schedules a call to run when the surrounding function returns, even on panic. Deferred calls run in last-in-first-out order. Arguments are evaluated immediately. Typical: `defer f.Close()`.",
+  "return": "Returns from the function. Go functions often return several values, conventionally `(result, error)`. Named results can be returned with a bare `return`.",
+  "break": "Exits the innermost for, switch or select (or a labeled one: `break outer`).",
+  "continue": "Skips to the next iteration of the innermost (or labeled) for loop.",
+  "goto": "Jumps to a label in the same function. Rare in idiomatic Go.",
+  "nil": "The zero value for pointers, slices, maps, channels, functions and interfaces. Gotcha: an interface holding a nil pointer is not itself nil.",
+  "true": "Predeclared boolean constant.", "false": "Predeclared boolean constant.",
+  "iota": "Inside a const block, iota is 0, 1, 2... on successive lines. Handy for enums: `const ( A = iota; B; C )`.",
+  "append": "`s = append(s, v...)` adds elements to a slice and returns the (possibly reallocated) slice. Always assign the result back.",
+  "len": "Length of a string (in bytes), slice, array, map or channel.",
+  "cap": "Capacity of a slice, array or channel: how much it can hold before append has to reallocate.",
+  "make": "Creates slices, maps and channels with their internal structure: `make([]T, len, cap)`, `make(map[K]V)`, `make(chan T, buf)`.",
+  "new": "`new(T)` allocates a zero T and returns a *T. `&T{...}` is more common for structs.",
+  "delete": "`delete(m, k)` removes a key from a map. Does nothing if it isn't there.",
+  "copy": "`copy(dst, src)` copies elements between slices and returns how many it copied.",
+  "panic": "Stops normal execution and unwinds the stack, running deferred calls. For truly unexpected errors; ordinary failures return `error`.",
+  "recover": "Called inside a deferred function, recover stops a panic and returns its value.",
+  "close": "Closes a channel: receivers get the remaining values, then zero values with ok == false. Only the sender should close.",
+  "clear": "Deletes all entries of a map, or zeroes all elements of a slice (Go 1.21+).",
+  "min": "Built-in min of ordered values (Go 1.21+).", "max": "Built-in max of ordered values (Go 1.21+).",
+  "print": "Low-level built-in printing to stderr; use fmt in real code.", "println": "Low-level built-in printing to stderr; use fmt in real code.",
+  "error": "The built-in interface `interface{ Error() string }`. Functions return it as their last result; nil means success. Wrap with fmt.Errorf(\"...: %w\", err), inspect with errors.Is/As.",
+  "any": "Alias for `interface{}`: a value of any type. Get the concrete value back with a type assertion `v.(T)` or a type switch.",
+  "string": "An immutable sequence of bytes, usually UTF-8. Indexing gives bytes; `range` gives runes. Convert with []byte(s) and string(b).",
+  "byte": "Alias for uint8.", "rune": "Alias for int32; holds one Unicode code point.",
+  "int": "Signed integer, 64 bits on modern platforms.", "bool": "true or false.",
+  "float64": "64-bit floating point number.", "int64": "64-bit signed integer.", "uint8": "8-bit unsigned integer.",
+  "comparable": "Constraint satisfied by types that support == and != (used in generics).",
+  ":=": "Short variable declaration: declares and assigns, inferring the type. At least one variable on the left must be new. Only inside functions.",
+  "<-": "Channel operator. `ch <- v` sends, `<-ch` receives. In a type, `<-chan T` is receive-only and `chan<- T` is send-only.",
+  "...": "Variadic: `func f(xs ...int)` takes any number of ints (a []int inside). `f(s...)` passes a slice as the variadic arguments. In `[...]T{}` it counts the array length.",
+  "&": "Takes the address of a value, giving a pointer: `&x`, `&T{...}`. Also bitwise AND.",
+  "*": "In a type, `*T` is a pointer to T. In an expression, `*p` reads the value p points to. Also multiplication.",
+  "_": "The blank identifier: discards a value (`_, err := f()`), or imports a package only for its side effects.",
+  "~": "In a constraint, `~T` means any type whose underlying type is T.",
+};
+const GO_KW = new Set(Object.keys(GO_DOC).filter(k => /^[a-z]+$/.test(k)));
+
+/* ------------------------------------------------------------------ highlighting */
+
+const CLS = ["k", "s", "n", "c", "o", "i"];
+const KW = {
+  go: "break case chan const continue default defer else fallthrough for func go goto if import interface map package range return select struct switch type var",
+  js: "break case catch class const continue debugger default delete do else export extends finally for function if import in instanceof let new return super switch this throw try typeof var void while with yield async await of null undefined true false static get set from",
+  py: "and as assert async await break class continue def del elif else except finally for from global if import in is lambda nonlocal not or pass raise return try while with yield None True False self match case",
+  rust: "as async await break const continue crate dyn else enum extern false fn for if impl in let loop match mod move mut pub ref return self Self static struct super trait true type unsafe use where while",
+  c: "auto break case char const continue default do double else enum extern float for goto if inline int long register return short signed sizeof static struct switch typedef union unsigned void volatile while class namespace public private protected template typename virtual new delete true false nullptr bool include define",
+  java: "abstract boolean break byte case catch char class const continue default do double else enum extends final finally float for if implements import instanceof int interface long native new package private protected public return short static super switch synchronized this throw throws try void volatile while true false null val var fun when object",
+  sh: "if then else elif fi for while until do done case esac function in return export local set unset echo exit source",
+  sql: "select from where and or not insert into values update set delete create table index primary key foreign references join left right inner outer on group by order limit offset as null is in like having distinct union all exists case when then else end",
+  proto: "syntax package import option message enum service rpc returns repeated optional required map oneof reserved stream",
+  gomod: "module go require replace exclude retract toolchain godebug use",
+  json: "true false null", yaml: "true false null yes no", toml: "true false",
+};
+KW.swift = "actor any as associatedtype async await break case catch class continue default defer deinit do else enum extension fallthrough false fileprivate final for func get guard if import in init inout internal is lazy let mutating nil nonisolated open operator override private protocol public repeat required rethrows return self Self set some static struct subscript super switch throw throws true try typealias var weak where while willSet didSet";
+KW.ts = KW.js + " interface type enum implements private public protected readonly as declare namespace abstract keyof never unknown any";
+const GO_PRE = new Set("append cap clear close complex copy delete imag len make max min new panic print println real recover bool byte comparable complex64 complex128 error float32 float64 int int8 int16 int32 int64 rune string uint uint8 uint16 uint32 uint64 uintptr any true false iota nil".split(" "));
+const LINEC = { swift: "//", go: "//", js: "//", ts: "//", rust: "//", c: "//", java: "//", proto: "//", gomod: "//", py: "#", sh: "#", yaml: "#", toml: "#", make: "#", sql: "--" };
+const BLOCKC = { swift: ["/*", "*/"], go: ["/*", "*/"], js: ["/*", "*/"], ts: ["/*", "*/"], rust: ["/*", "*/"], c: ["/*", "*/"], java: ["/*", "*/"], css: ["/*", "*/"], proto: ["/*", "*/"], html: ["<!--", "-->"] };
+const KWSETS = {};
+
+// tokenize produces [start, end, class, identIndex] tuples, the same shape
+// the server sends for Go files.
+function tokenize(src, lang) {
+  if (lang === "text" || lang === "md") return [];
+  const kw = KWSETS[lang] || (KWSETS[lang] = new Set((KW[lang] || "").split(" ")));
+  const lc = LINEC[lang], bc = BLOCKC[lang];
+  const quotes = lang === "rust" ? '"' : lang === "go" ? "\"'`" : "\"'`";
+  const out = [], n = src.length;
+  let i = 0;
+  while (i < n) {
+    const ch = src[i];
+    if (lc && src.startsWith(lc, i)) { let j = src.indexOf("\n", i); if (j < 0) j = n; out.push([i, j, 3, -1]); i = j; continue; }
+    if (bc && src.startsWith(bc[0], i)) { let j = src.indexOf(bc[1], i + bc[0].length); j = j < 0 ? n : j + bc[1].length; out.push([i, j, 3, -1]); i = j; continue; }
+    if ((lang === "py" || lang === "swift") && (src.startsWith('"""', i) || (lang === "py" && src.startsWith("'''", i)))) {
+      const q = src.slice(i, i + 3); let j = src.indexOf(q, i + 3); j = j < 0 ? n : j + 3;
+      out.push([i, j, lang === "py" && /^\s*$/.test(src.slice(src.lastIndexOf("\n", i - 1) + 1, i)) ? 3 : 1, -1]); i = j; continue; // docstrings look like comments
+    }
+    if (lang === "html" && ch === "<" && /[A-Za-z\/!]/.test(src[i + 1] || "")) {
+      const m = /^<\/?[A-Za-z][\w:-]*/.exec(src.slice(i, i + 64));
+      if (m) { out.push([i, i + m[0].length, 0, -1]); i += m[0].length; continue; }
+    }
+    if (quotes.includes(ch) && !(lang === "rust" && ch === "'") && !(lang === "swift" && ch === "'") && !(lang === "html" && ch === "'" && /\w/.test(src[i - 1] || ""))) {
+      let j = i + 1;
+      while (j < n && src[j] !== ch) { if (src[j] === "\\" && ch !== "`") j++; else if (src[j] === "\n" && ch !== "`" && lang !== "py") break; j++; }
+      j = Math.min(j + 1, n); out.push([i, j, 1, -1]); i = j; continue;
+    }
+    if (ch >= "0" && ch <= "9" && !/[\w$]/.test(src[i - 1] || "")) {
+      const m = /^[0-9][\w.]*/.exec(src.slice(i, i + 40)); out.push([i, i + m[0].length, 2, -1]); i += m[0].length; continue;
+    }
+    if (/[A-Za-z_$]/.test(ch)) {
+      let j = i + 1; while (j < n && /[\w$]/.test(src[j])) j++;
+      const w = src.slice(i, j);
+      out.push([i, j, kw.has(lang === "sql" ? w.toLowerCase() : w) ? 0 : 5, -1]); i = j; continue;
+    }
+    if (lang === "go" && ":<.".includes(ch)) {
+      const op = src.startsWith(":=", i) ? ":=" : src.startsWith("<-", i) ? "<-" : src.startsWith("...", i) ? "..." : "";
+      if (op) { out.push([i, i + op.length, 4, -1]); i += op.length; continue; }
+    }
+    i++;
+  }
+  return out;
+}
+
+function tokClass(t, text, idents, lang) {
+  let c = CLS[t[2]];
+  if (t[2] === 5) {
+    const id = idents && t[3] >= 0 ? idents[t[3]] : null;
+    if (lang === "go" || LSP_LANGS.has(lang)) c += " x";
+    if (id) { c += id.u ? " b" : " i-" + id.k; if (id.def) c += " def"; }
+    else if (lang === "go" && GO_PRE.has(text)) c += " b";
+  } else if (t[2] === 0 && LSP_LANGS.has(lang) || t[2] === 0 && lang === "go") c += " x";
+  else if (t[2] === 4 && lang === "go" && GO_DOC[text]) c += " x";
+  return c;
+}
+
+// Languages where clicking a name asks a language server (or the name index).
+const LSP_LANGS = new Set(["py", "js", "ts", "swift", "c", "sh", "proto"]);
+
+// renderLines returns one HTML string per source line.
+function renderLines(src, toks, idents, lang, clickable = true) {
+  let html = "", pos = 0;
+  toks.forEach((t, ti) => {
+    if (t[0] < pos) return;
+    if (t[0] > pos) html += esc(src.slice(pos, t[0]));
+    const text = src.slice(t[0], t[1]);
+    const cls = clickable ? tokClass(t, text, idents, lang) : CLS[t[2]] + (lang === "go" && t[2] === 5 && GO_PRE.has(text) ? " b" : "");
+    const attr = clickable ? ` data-t="${ti}"` : "";
+    html += text.split("\n").map(p => `<span class="${cls}"${attr}>${esc(p)}</span>`).join("\n");
+    pos = t[1];
+  });
+  html += esc(src.slice(pos));
+  return html.split("\n");
+}
+
+function highlight(src, lang) {
+  return renderLines(src, tokenize(src, lang), null, lang, false).join("\n");
+}
+
+/* ------------------------------------------------------------------ repo + tree */
+
+async function setRoot(root) {
+  const code = $("#code");
+  code.innerHTML = `<div class="loading">Opening ${esc(root)}…</div>`;
+  let t;
+  try { t = await api("/api/tree", { root }); }
+  catch (e) { code.innerHTML = `<div class="loading err">${esc(e.message)}</div>`; openModal(); return; }
+  S.root = t.root; S.name = t.name; S.files = t.files; S.fileSet = new Set(t.files);
+  S.cur = null; S.back = []; S.fwd = []; S.sel = null; S.chip = null; S.open = new Set();
+  S.suggesting = false; S.suggestFailed = false;
+  store.set("root", S.root);
+  const recent = store.get("recent", []).filter(r => r !== S.root); recent.unshift(S.root); store.set("recent", recent.slice(0, 8));
+  $("#repoBtn").textContent = S.name;
+  $("#repoBtn").title = S.root + " (click to open another repo)";
+  document.title = S.name + " · coderead";
+  $("#filter").value = ""; $("#searchQ").value = ""; $("#hits").innerHTML = "";
+  renderTree(); renderOutline(); loadChat(); renderChip(); updateNav();
+  const h = parseHash();
+  if (h && S.fileSet.has(h.path)) openFile(h.path, h.line, { push: false });
+  else showWelcome();
+}
+
+function parseHash() {
+  const h = decodeURIComponent(location.hash.slice(1));
+  if (!h) return null;
+  const m = /^(.*?)(?::(\d+))?$/.exec(h);
+  return { path: m[1], line: m[2] ? +m[2] : 0 };
+}
+
+function showWelcome() {
+  S.cur = null;
+  $("#crumbs").innerHTML = "";
+  location.hash = "";
+  const starts = S.files.filter(f => /(^|\/)(main\.go|doc\.go|README(\.md)?|ARCHITECTURE\.md)$/i.test(f)).slice(0, 12);
+  const counts = {};
+  for (const f of S.files) { const l = LANG_NAME[langOfPath(f)]; if (l) counts[l] = (counts[l] || 0) + 1; }
+  const langs = Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([l, n]) => `${n} ${l}`).join(", ");
+  $("#code").innerHTML = `<div class="welcome">
+    <h1>${esc(S.name)}</h1>
+    <p>${S.files.length} files${langs ? ": " + esc(langs) : ""}.</p>
+    ${starts.length ? `<p><b>Good places to start:</b></p><ul>${starts.map(f => `<li><a class="ref" data-p="${esc(f)}">${esc(f)}</a></li>`).join("")}</ul>` : ""}
+    <p><b>How to use it</b></p>
+    <ul>
+      <li><b>Click any name</b> to see what it is and where it's defined, find its uses, and ask the tutor about it. Go is analyzed with the Go type-checker; ${LSP_NOTE()}.</li>
+      <li><kbd>⌘</kbd>/<kbd>Ctrl</kbd>-click a name to jump straight to its definition. <kbd>Alt</kbd>+<kbd>←</kbd> goes back.</li>
+      <li>Click a <b>line number</b> (Shift-click for a range) or select code to ask about those lines.</li>
+      <li>The tutor reads the repo itself before answering. Locations in its answers are links.</li>
+    </ul></div>`;
+  renderTree(); renderOutline();
+}
+
+function renderTree() {
+  const el = $("#tree");
+  const f = $("#filter").value.trim().toLowerCase();
+  if (!S.root) { el.innerHTML = ""; return; }
+  if (f) {
+    const parts = f.split(/\s+/);
+    const hits = S.files.filter(p => { const l = p.toLowerCase(); return parts.every(x => l.includes(x)); })
+      .sort((a, b) => scoreName(b, f) - scoreName(a, f)).slice(0, 300);
+    el.innerHTML = hits.map(p => {
+      const i = p.lastIndexOf("/");
+      return `<div class="tr file${S.cur && S.cur.path === p ? " cur" : ""}" data-p="${esc(p)}">${esc(p.slice(i + 1))} <small>${esc(p.slice(0, i))}</small></div>`;
+    }).join("") || `<div class="muted">No matching files</div>`;
+    return;
+  }
+  const root = { d: {}, f: [] };
+  for (const p of S.files) {
+    const parts = p.split("/");
+    let node = root;
+    for (let i = 0; i < parts.length - 1; i++) node = node.d[parts[i]] || (node.d[parts[i]] = { d: {}, f: [] });
+    node.f.push(p);
+  }
+  const out = [];
+  const walk = (node, prefix, depth) => {
+    for (const name of Object.keys(node.d).sort()) {
+      const path = prefix + name;
+      const isOpen = S.open.has(path);
+      out.push(`<div class="tr dir" data-d="${esc(path)}" style="padding-left:${8 + depth * 14}px"><span class="tw">${isOpen ? "▾" : "▸"}</span>${esc(name)}</div>`);
+      if (isOpen) walk(node.d[name], path + "/", depth + 1);
+    }
+    for (const p of node.f) {
+      out.push(`<div class="tr file${S.cur && S.cur.path === p ? " cur" : ""}" data-p="${esc(p)}" style="padding-left:${22 + depth * 14}px">${esc(p.slice(p.lastIndexOf("/") + 1))}</div>`);
+    }
+  };
+  walk(root, "", 0);
+  el.innerHTML = out.join("");
+}
+
+function scoreName(p, f) {
+  const base = p.slice(p.lastIndexOf("/") + 1).toLowerCase();
+  return (base.startsWith(f) ? 4 : 0) + (base.includes(f) ? 2 : 0) - p.split("/").length * 0.1;
+}
+
+$("#tree").addEventListener("click", e => {
+  const d = e.target.closest("[data-d]");
+  if (d) { const p = d.dataset.d; S.open.has(p) ? S.open.delete(p) : S.open.add(p); renderTree(); return; }
+  const f = e.target.closest("[data-p]");
+  if (f) openFile(f.dataset.p, 0);
+});
+$("#filter").addEventListener("input", renderTree);
+$("#filter").addEventListener("keydown", e => {
+  if (e.key === "Enter") { const first = $("#tree [data-p]"); if (first) openFile(first.dataset.p, 0); }
+  if (e.key === "Escape") { e.target.value = ""; renderTree(); }
+});
+
+function revealInTree(p) {
+  const parts = p.split("/");
+  for (let i = 1; i < parts.length; i++) S.open.add(parts.slice(0, i).join("/"));
+}
+
+/* ------------------------------------------------------------------ sidebar tabs */
+
+function setTab(name) {
+  $$(".tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === name));
+  $$(".pane").forEach(p => p.classList.toggle("on", p.id === "pane-" + name));
+}
+$$(".tabs button").forEach(b => b.addEventListener("click", () => setTab(b.dataset.tab)));
+
+function renderOutline() {
+  const el = $("#outline");
+  const ol = S.cur && (S.cur.go ? S.cur.go.outline : S.cur.outline);
+  if (S.cur && !S.cur.go && S.cur.outline === undefined && LSP_LANGS.has(S.cur.lang)) { el.innerHTML = `<div class="muted dots">Loading outline</div>`; return; }
+  if (!ol || !ol.length) { el.innerHTML = `<div class="muted">${S.cur ? "No outline for this file." : "Open a file to see its declarations."}</div>`; return; }
+  const short = { type: "T", func: "ƒ", method: "m", const: "C", var: "V", field: "·", module: "M" };
+  el.innerHTML = `<div style="padding:6px 0">` + ol.map(o =>
+    `<div class="tr" data-l="${o.l}"><span class="ol-k ${o.k}">${short[o.k] || "·"}</span>${esc(o.n)}</div>`).join("") + `</div>`;
+}
+async function loadOutline(f) {
+  try { const r = await api("/api/outline", { root: S.root, path: f.path }); f.outline = r.outline; f.engine = r.engine; }
+  catch { f.outline = []; }
+  if (S.cur === f) renderOutline();
+}
+$("#outline").addEventListener("click", e => { const r = e.target.closest("[data-l]"); if (r && S.cur) openFile(S.cur.path, +r.dataset.l); });
+
+let searchTimer = 0;
+$("#searchQ").addEventListener("input", () => { clearTimeout(searchTimer); searchTimer = setTimeout(runSearch, 300); });
+$("#searchQ").addEventListener("keydown", e => { if (e.key === "Enter") { clearTimeout(searchTimer); runSearch(); } });
+async function runSearch() {
+  const q = $("#searchQ").value;
+  const el = $("#hits");
+  if (!q.trim()) { el.innerHTML = ""; return; }
+  el.innerHTML = `<div class="muted">Searching…</div>`;
+  try {
+    const r = await api("/api/search", { root: S.root, q });
+    if (!r.hits.length) { el.innerHTML = `<div class="muted">No results</div>`; return; }
+    let last = "", html = "";
+    for (const h of r.hits) {
+      if (h.p !== last) { html += `<div class="hit-file">${esc(h.p)}</div>`; last = h.p; }
+      html += `<div class="hit" data-p="${esc(h.p)}" data-l="${h.l}"><b>${h.l}</b>${esc(h.text)}</div>`;
+    }
+    if (r.truncated) html += `<div class="muted">Showing the first 500 matches.</div>`;
+    el.innerHTML = html;
+  } catch (e) { el.innerHTML = `<div class="muted err">${esc(e.message)}</div>`; }
+}
+$("#hits").addEventListener("click", e => { const h = e.target.closest("[data-p]"); if (h) openFile(h.dataset.p, +h.dataset.l); });
+
+function searchFor(text) {
+  setTab("search");
+  $("#searchQ").value = text;
+  runSearch();
+}
+
+/* ------------------------------------------------------------------ code view */
+
+function visibleLine() {
+  const c = $("#code");
+  return Math.max(1, Math.floor(c.scrollTop / 20) + 1);
+}
+
+async function openFile(path, line, opts = {}) {
+  if (!path) return;
+  closePop();
+  if (S.cur && opts.push !== false) {
+    S.back.push({ path: S.cur.path, line: S.sel ? S.sel.from : visibleLine(), top: true });
+    S.fwd = [];
+  }
+  if (!S.cur || S.cur.path !== path) {
+    const code = $("#code");
+    const slow = setTimeout(() => {
+      code.innerHTML = `<div class="loading dots">Loading ${esc(path)}${path.endsWith(".go") ? " (the first Go file takes a few seconds while the type-checker loads packages)" : ""}</div>`;
+    }, 150);
+    let f;
+    try { f = await api("/api/file", { root: S.root, path }); }
+    catch (e) { clearTimeout(slow); code.innerHTML = `<div class="loading err">${esc(path)}: ${esc(e.message)}</div>`; updateNav(); return; }
+    clearTimeout(slow);
+    S.cur = f; S.sel = null; hideSelbar();
+    f.view = (f.lang === "md" || f.lang === "ipynb") && !line ? store.get("mdview", "preview") : "source";
+    renderCode();
+    if (S.fileSet.has(f.path)) revealInTree(f.path);
+    renderTree(); renderOutline();
+    if (!f.go && LSP_LANGS.has(f.lang) && !f.binary && !f.tooBig) loadOutline(f); // also warms up the language server
+  }
+  if (line && S.cur.view === "preview") { S.cur.view = "source"; renderCode(); } // a line number means: show the source
+  if (line) gotoLine(line, opts.end || line, opts.top);
+  else $("#code").scrollTop = 0;
+  location.hash = encodeURIComponent(S.cur.path) + (line ? ":" + line : "");
+  updateNav();
+}
+
+function renderCode() {
+  const f = S.cur, code = $("#code");
+  const shown = f.path.startsWith(B.goroot + "/") ? "$GOROOT/" + f.path.slice(B.goroot.length + 1)
+    : B.modcache && f.path.startsWith(B.modcache + "/") ? "$GOMODCACHE/" + f.path.slice(B.modcache.length + 1) : f.path;
+  $("#crumbs").innerHTML = `<bdi>${esc(shown)}</bdi>`;
+  if (f.binary || f.tooBig) { code.innerHTML = `<div class="loading">${f.binary ? "Binary file, not shown." : "File is larger than 2 MB, not shown."}</div>`; return; }
+  const src = f.content;
+  f.toks = f.go ? f.go.tokens : tokenize(src, f.lang);
+  const lines = renderLines(src, f.toks, f.go ? f.go.idents : null, f.lang);
+  if (src.endsWith("\n")) lines.pop();
+  f.lineStarts = [0];
+  for (let i = 0; i < src.length; i++) if (src.charCodeAt(i) === 10) f.lineStarts.push(i + 1);
+  f.lines = src.split("\n");
+  const note = f.go && f.go.note ? `<div class="note">${esc(f.go.note)}</div>` :
+    !S.fileSet.has(f.path) && f.lang === "go" ? `<div class="note">Outside the repo: ${esc(shown)}${f.go && f.go.pkg ? ` (package ${esc(f.go.pkg)})` : ""}. Clicks work here too.</div>` : "";
+  renderViewbar();
+  if (f.lang === "md" && f.view === "preview") {
+    MD_BASE = f.path.includes("/") ? f.path.slice(0, f.path.lastIndexOf("/")) : "";
+    try { code.innerHTML = `<article class="mdview">${md(htmlToMd(src))}</article>`; } finally { MD_BASE = null; }
+    return;
+  }
+  if (f.lang === "ipynb" && f.view === "preview") {
+    MD_BASE = f.path.includes("/") ? f.path.slice(0, f.path.lastIndexOf("/")) : "";
+    try { code.innerHTML = renderNotebook(src); } finally { MD_BASE = null; }
+    return;
+  }
+  code.innerHTML = note + lines.map((h, i) => `<div class="line" data-l="${i + 1}"><span class="ln">${i + 1}</span><span class="lc">${h || " "}</span></div>`).join("");
+}
+
+// renderNotebook shows a Jupyter notebook: markdown cells rendered, code
+// cells highlighted, and text/image outputs below them.
+function renderNotebook(src) {
+  let nb;
+  try { nb = JSON.parse(src); } catch { return `<div class="loading">Not valid notebook JSON. Switch to Source to see it.</div>`; }
+  const text = v => Array.isArray(v) ? v.join("") : (v || "");
+  const lang = ({ python: "py", javascript: "js", typescript: "ts" })[((nb.metadata || {}).kernelspec || {}).language || (nb.metadata && nb.metadata.language_info || {}).name || "python"] || "py";
+  let h = `<article class="mdview nb">`;
+  for (const c of nb.cells || []) {
+    const body = text(c.source);
+    if (c.cell_type === "markdown") { h += `<div class="nb-md">${md(htmlToMd(body))}</div>`; continue; }
+    if (c.cell_type !== "code") { h += `<pre class="nb-raw">${esc(body)}</pre>`; continue; }
+    h += `<div class="nb-cell"><div class="nb-in">In [${c.execution_count ?? " "}]:</div><pre><code>${highlight(body, lang)}</code></pre>`;
+    for (const o of c.outputs || []) {
+      const d = o.data || {};
+      if (o.output_type === "stream") h += `<pre class="nb-out">${esc(text(o.text))}</pre>`;
+      else if (o.output_type === "error") h += `<pre class="nb-out err">${esc((o.ename || "") + ": " + (o.evalue || ""))}</pre>`;
+      else if (d["image/png"]) h += `<img class="nb-img" src="data:image/png;base64,${esc(text(d["image/png"]).trim())}">`;
+      else if (d["image/svg+xml"]) h += `<img class="nb-img" src="data:image/svg+xml;utf8,${encodeURIComponent(text(d["image/svg+xml"]))}">`;
+      else if (d["text/markdown"]) h += `<div class="nb-out">${md(text(d["text/markdown"]))}</div>`;
+      else if (d["text/plain"]) h += `<pre class="nb-out">${esc(text(d["text/plain"]))}</pre>`;
+    }
+    h += `</div>`;
+  }
+  return h + `</article>`;
+}
+
+function renderViewbar() {
+  const f = S.cur, bar = $("#viewbar");
+  if (!f || (f.lang !== "md" && f.lang !== "ipynb") || f.binary || f.tooBig) { bar.innerHTML = ""; bar.classList.remove("on"); return; }
+  bar.classList.add("on");
+  bar.innerHTML = `<div class="seg"><button data-v="preview" class="${f.view === "preview" ? "on" : ""}">Preview</button><button data-v="source" class="${f.view === "source" ? "on" : ""}">Source</button></div>`;
+}
+$("#viewbar").addEventListener("click", e => {
+  const b = e.target.closest("[data-v]");
+  if (!b || !S.cur || S.cur.view === b.dataset.v) return;
+  S.cur.view = b.dataset.v; store.set("mdview", S.cur.view);
+  hideSelbar(); renderCode(); $("#code").scrollTop = 0;
+});
+
+function lineEl(n) { return $(`#code .line[data-l="${n}"]`); }
+
+function gotoLine(from, to, top) {
+  const el = lineEl(from);
+  if (!el) return;
+  const c = $("#code");
+  if (top) c.scrollTop = Math.max(0, (from - 1) * 20);
+  else c.scrollTop = Math.max(0, el.offsetTop - c.clientHeight / 3);
+  for (let i = from; i <= to; i++) {
+    const l = lineEl(i);
+    if (l) { l.classList.remove("flash"); void l.offsetWidth; l.classList.add("flash"); }
+  }
+}
+
+function updateNav() {
+  $("#backBtn").disabled = !S.back.length;
+  $("#fwdBtn").disabled = !S.fwd.length;
+}
+function goBack() {
+  const h = S.back.pop(); if (!h) return;
+  if (S.cur) S.fwd.push({ path: S.cur.path, line: visibleLine(), top: true });
+  openFile(h.path, h.line, { push: false, top: h.top });
+}
+function goFwd() {
+  const h = S.fwd.pop(); if (!h) return;
+  if (S.cur) S.back.push({ path: S.cur.path, line: visibleLine(), top: true });
+  openFile(h.path, h.line, { push: false, top: h.top });
+}
+$("#backBtn").onclick = goBack;
+$("#fwdBtn").onclick = goFwd;
+
+/* line selection */
+function setSel(from, to) {
+  if (from > to) [from, to] = [to, from];
+  $$("#code .line.sel").forEach(l => l.classList.remove("sel"));
+  S.sel = { from, to };
+  for (let i = from; i <= to; i++) { const l = lineEl(i); if (l) l.classList.add("sel"); }
+  const label = from === to ? `Line ${from}` : `Lines ${from}–${to}`;
+  const bar = $("#selbar");
+  bar.innerHTML = `<span>${label}</span>
+    <button data-a="explain">Explain these lines</button>
+    <button data-a="ask" class="primary">Ask about them…</button>
+    <button data-a="change" title="Describe a change to these lines; get a precise request for a coding agent">✎ Change them…</button>
+    <button data-a="x" class="ghost" title="Clear selection">✕</button>`;
+  bar.classList.add("on");
+}
+function hideSelbar() {
+  $("#selbar").classList.remove("on");
+  $$("#code .line.sel").forEach(l => l.classList.remove("sel"));
+  S.sel = null;
+}
+$("#selbar").addEventListener("click", e => {
+  const a = e.target.closest("[data-a]"); if (!a || !S.sel) return;
+  const ctx = { kind: "lines", file: S.cur.path, from: S.sel.from, to: S.sel.to };
+  if (a.dataset.a === "explain") ask("Explain these lines step by step: what they do, what data they read and change, who calls them, and why they're written this way. Name any pattern or technique they use.", ctx);
+  if (a.dataset.a === "change") { startChange(ctx); hideSelbar(); }
+  if (a.dataset.a === "ask") { S.chip = ctx; renderChip(); $("#q").focus(); }
+  if (a.dataset.a === "x") hideSelbar();
+});
+
+$("#code").addEventListener("click", e => {
+  const ref = e.target.closest("a.ref");
+  if (ref) { openRef(ref); return; }
+  const anc = e.target.closest("a.anchor");
+  if (anc) { const t = document.getElementById(anc.dataset.anchor); if (t) t.scrollIntoView({ block: "start", behavior: "smooth" }); return; }
+  const ln = e.target.closest(".ln");
+  if (ln) {
+    const n = +ln.parentElement.dataset.l;
+    if (e.shiftKey && S.sel) setSel(S.sel.from, n); else setSel(n, n);
+    return;
+  }
+  const tok = e.target.closest("[data-t]");
+  const sel = window.getSelection();
+  if (sel && !sel.isCollapsed && sel.toString().trim()) return; // user is selecting text
+  if (tok && tok.classList.contains("x")) { onToken(tok, e); return; }
+  closePop();
+});
+
+$("#code").addEventListener("mouseup", () => {
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed || !sel.toString().trim()) return;
+  const a = sel.anchorNode && (sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement).closest(".line");
+  const b = sel.focusNode && (sel.focusNode.nodeType === 1 ? sel.focusNode : sel.focusNode.parentElement).closest(".line");
+  if (a && b) setSel(+a.dataset.l, +b.dataset.l);
+});
+
+/* ------------------------------------------------------------------ popover */
+
+const LANG_NAME = { py: "Python", js: "JavaScript", ts: "TypeScript", swift: "Swift", c: "C", sh: "shell", go: "Go", proto: "Protocol Buffers", java: "Java", rust: "Rust" };
+const KIND_LABEL = { var: "variable", field: "field", func: "function", method: "method", type: "type", const: "constant", pkg: "package", label: "label", builtin: "built-in", nil: "nil", ext: "external", keyword: "keyword", op: "operator", word: "name" };
+
+function tokInfo(el) {
+  const f = S.cur, t = f.toks[+el.dataset.t];
+  const text = f.content.slice(t[0], t[1]);
+  const line = +el.closest(".line").dataset.l;
+  const col = t[0] - f.lineStarts[line - 1] + 1;
+  const info = f.go && t[2] === 5 && t[3] >= 0 ? f.go.idents[t[3]] : null;
+  let kind = info ? info.k : t[2] === 0 ? "keyword" : t[2] === 4 ? "op" : "word";
+  if (!info && f.lang === "go" && t[2] === 5 && GO_PRE.has(text)) kind = "builtin";
+  return { text, line, col, info, kind };
+}
+
+async function onToken(el, e) {
+  const ti = tokInfo(el);
+  if ((e.metaKey || e.ctrlKey) && ti.info && ti.info.loc && !ti.info.def) { openLoc(ti.info.loc); return; }
+  if ((e.metaKey || e.ctrlKey) && !S.cur.go && ti.kind === "word") {
+    const r = await lookup(ti).catch(() => null);
+    const only = r && (r.defs.length === 1 ? r.defs[0] : !r.defs.length && r.candidates && r.candidates.length === 1 ? r.candidates[0] : null);
+    if (only && !(only.p === S.cur.path && only.l === ti.line)) { openFile(only.p, only.l); return; }
+  }
+  showPop(el, ti);
+}
+
+const lookupCache = new Map();
+function lookup(ti) {
+  const k = `${S.cur.path}:${ti.line}:${ti.col}:${S.cur.abs}`;
+  if (!lookupCache.has(k)) {
+    const p = api("/api/symbol", { root: S.root, path: S.cur.path, line: ti.line, col: ti.col, name: ti.text });
+    p.catch(() => lookupCache.delete(k));
+    lookupCache.set(k, p);
+  }
+  return lookupCache.get(k);
+}
+
+// loadLookup fills the popover for a name in a non-Go file.
+async function loadLookup(ti) {
+  const box = $("#symMore");
+  const slow = setTimeout(() => { if (box) box.innerHTML = `<div class="help dots">Asking the language server (the first lookup in a language can take a while)</div>`; }, 300);
+  let r;
+  try { r = await lookup(ti); } catch (e) { clearTimeout(slow); if (box) box.innerHTML = `<div class="help err">${esc(e.message)}</div>`; return; }
+  clearTimeout(slow);
+  if (!box.isConnected || !popCtx || popCtx.name !== ti.text) return;
+  let h = "";
+  const self = r.defs.length && r.defs.every(d => d.p === S.cur.path && d.l === ti.line);
+  if (r.hover) h += `<div class="pop-hover">${md(r.hover)}</div>`;
+  if (self) h += `<div class="pop-row help">This is where it's defined.</div>`;
+  else if (r.defs.length) {
+    h += `<div class="pop-row">${r.defs.length === 1 ? "Defined at" : "Definitions:"}</div>` +
+      r.defs.map(d => `<div class="mrow" data-p="${esc(d.p)}" data-l="${d.l}"><span class="loc">${esc(locLabel(d))}</span>  <span class="dim">${esc(d.text)}</span></div>`).join("");
+  } else if (r.candidates && r.candidates.length) {
+    h += `<div class="pop-row help">${r.engine && !r.engineErr ? esc(r.engine) + " couldn't resolve it. " : ""}Declarations with this name (matched by name, so some may be unrelated):</div>` +
+      r.candidates.map(d => `<div class="mrow" data-p="${esc(d.p)}" data-l="${d.l}"><span class="loc">${esc(d.p)}:${d.l}</span>  <span class="dim">${esc(d.text)}</span></div>`).join("");
+  } else {
+    h += `<div class="pop-row help">No definition found${r.engine ? "" : " (no language server for this file type)"}. It may come from a library, or be a local name.</div>`;
+  }
+  const actions = [];
+  if (r.engine && !r.engineErr) actions.push(`<button data-a="refs">Find references</button>`);
+  actions.push(`<button data-a="search">Find “${esc(ti.text)}” as text</button>`);
+  h += `<div class="pop-row" style="display:flex;gap:6px;flex-wrap:wrap">${actions.join("")}</div><div id="refsBox"></div>`;
+  h += `<div class="pop-row help">${r.engine ? (r.engineErr ? `${esc(r.engine)} unavailable: ${esc(r.engineErr)}` : `via ${esc(r.engine)}`) : "via name index"}</div>`;
+  box.innerHTML = h;
+  // Tell the tutor what we found.
+  const hov = (r.hover || "").replace(/```\w*\n?/g, "").replace(/\s+/g, " ").trim().slice(0, 300);
+  let f = hov ? `The ${r.engine} language server describes it as: ${hov}.` : "";
+  if (r.defs.length && !self) f += ` Defined at ${r.defs.slice(0, 3).map(locLabel).join(", ")}.`;
+  else if (!r.defs.length && r.candidates && r.candidates.length) f += ` Declarations with the same name (unverified): ${r.candidates.slice(0, 5).map(d => d.p + ":" + d.l).join(", ")}.`;
+  popCtx.facts = f.trim();
+  const el = $(".x.active"); if (el) placePop(el);
+}
+
+async function loadRefs(ti) {
+  const box = $("#refsBox");
+  box.innerHTML = `<div class="help dots">Finding references</div>`;
+  try {
+    const r = await api("/api/refs", { root: S.root, path: S.cur.path, line: ti.line, col: ti.col });
+    const again = `<button class="ghost" data-a="refs" title="Language servers index the repo in the background; right after opening it, results can be incomplete">↻ Refresh</button>`;
+    box.innerHTML = (r.refs.length ? `<details class="pop-sec" open><summary>${r.total} other reference${r.total === 1 ? "" : "s"}${r.total > r.refs.length ? ` (first ${r.refs.length})` : ""}</summary>` +
+      r.refs.map(x => `<div class="mrow" data-p="${esc(x.p)}" data-l="${x.l}"><span class="dim">${esc(locLabel(x))}</span>  ${esc(x.text)}</div>`).join("") + `</details>`
+      : `<div class="help">No other references found.</div>`) + `<div class="help">May be incomplete for the first minute while the server indexes. ${again}</div>`;
+  } catch (e) { box.innerHTML = `<div class="help err">${esc(e.message)}</div>`; }
+  const el = $(".x.active"); if (el) placePop(el);
+}
+
+function langOfPath(f) {
+  const e = f.slice(f.lastIndexOf(".") + 1).toLowerCase();
+  return ({ go: "go", py: "py", pyi: "py", js: "js", mjs: "js", cjs: "js", jsx: "js", ts: "ts", tsx: "ts", swift: "swift", c: "c", h: "c", cc: "c", cpp: "c", m: "c", sh: "sh", proto: "proto" })[e] || "";
+}
+function LSP_NOTE() {
+  const l = B.lsp || {}, on = [], off = [];
+  for (const [name, langs] of [["pyright", "Python"], ["typescript", "TypeScript/JavaScript"], ["sourcekit-lsp", "Swift"], ["clangd", "C"]]) (l[name] ? on : off).push(`${langs} (${name})`);
+  return (on.length ? "other languages use their language servers: " + on.join(", ") : "no language servers were found") +
+    (off.length ? `. Not installed: ${off.join(", ")}, which fall back to matching names` : "");
+}
+function locLabel(loc) {
+  let p = loc.p;
+  const short = [[/.*\/typeshed-fallback\//, "typeshed/"], [/.*\/node_modules\//, "node_modules/"], [/.*\/SDKs\/[^/]+\//, "SDK/"], [/.*\/GeneratedInterfaces\//, ""], [/.*\/site-packages\//, "site-packages/"], [/.*\/lib\/python3[^/]*\//, "python/"]];
+  for (const [re, to] of short) if (re.test(p)) { p = p.replace(re, to); return `${p}:${loc.l}`; }
+  if (p.startsWith(B.goroot + "/")) p = "$GOROOT/" + p.slice(B.goroot.length + 1);
+  else if (B.modcache && p.startsWith(B.modcache + "/")) p = p.slice(B.modcache.length + 1).replace(/@[^/]+/, "");
+  return `${p}:${loc.l}`;
+}
+function openLoc(loc) { openFile(loc.p, loc.l); }
+
+function factsFor(ti) {
+  const { info, text, kind } = ti;
+  if (!info) {
+    if (kind === "keyword") return `\`${text}\` is a ${LANG_NAME[S.cur.lang] || ""} keyword.`;
+    if (kind === "op") return `\`${text}\` is a Go operator.`;
+    if (kind === "builtin") return `\`${text}\` is predeclared by Go.`;
+    return "";
+  }
+  if (info.k === "pkg") return `\`${text}\` refers to the imported package "${info.pkg}".`;
+  if (info.k === "ext") return `\`${text}\` is a member of package "${info.pkg}" (its source wasn't available to the browser's type-checker).`;
+  let s = `\`${text}\` is ${/^[aeiou]/.test(KIND_LABEL[info.k]) ? "an" : "a"} ${KIND_LABEL[info.k] || info.k}`;
+  if (info.t) s += info.k === "type" ? ` (underlying: \`${info.t}\`)` : info.k === "func" || info.k === "method" ? ` with signature \`${info.t}\`` : ` of type \`${info.t}\``;
+  if (info.u) s += ", predeclared by Go";
+  if (info.loc) s += info.def ? "; this occurrence is its declaration" : `, declared at ${locLabel(info.loc)}`;
+  if (info.pkg && info.loc && info.loc.p.startsWith("/")) s += ` (package ${info.pkg})`;
+  return s + ".";
+}
+
+function quickQuestions(ti) {
+  const n = ti.text, k = ti.kind;
+  const Q = {
+    type: [`What is ${n} for, and what invariants does it keep?`, `Walk me through the fields and methods of ${n}.`, `Who creates and changes ${n} values?`],
+    func: [`What does ${n} do, step by step?`, `Who calls ${n}, and why?`, `What does ${n} cost (time, allocations, I/O), and is it on a hot path?`],
+    method: [`What does ${n} do, step by step?`, `Who calls ${n}, and why?`, `What does ${n} cost (time, allocations, I/O), and is it on a hot path?`],
+    var: [`Where does ${n} come from, and what is its type?`, `How is ${n} used after this?`],
+    field: [`What is the ${n} field for, and who sets it?`, `Where is ${n} read or written?`],
+    const: [`Why is ${n} a constant, and where is it used?`],
+    pkg: [`What is the ${n} package used for here?`, `Which parts of ${n} does this repo use?`],
+    ext: [`What is ${n}, and how is it used here?`],
+    keyword: [`Explain \`${n}\` using this line as the example.`, `What are common pitfalls with \`${n}\`?`],
+    op: [`Explain \`${n}\` using this line as the example.`],
+    builtin: [`Explain \`${n}\` using this line as the example.`],
+  };
+  if (k === "word" && S.cur && S.cur.lang !== "go") return [`What is ${n}, and where is it defined?`, `How does data flow through ${n} here?`, `Who depends on ${n}, and what would break if it changed?`];
+  return Q[k] || [`What is \`${n}\` here?`, `Where is ${n} defined?`];
+}
+
+let popCtx = null, popTi = null;
+function showPop(el, ti) {
+  $$(".x.active").forEach(x => x.classList.remove("active"));
+  el.classList.add("active");
+  const { info, text, kind } = ti;
+  popCtx = { kind: "symbol", file: S.cur.path, line: ti.line, col: ti.col, name: text, facts: factsFor(ti) };
+  let body = "";
+  if (info && info.t) body += `<div class="pop-t">${esc(info.k === "type" ? "type " + text + " " + info.t : info.k === "func" || info.k === "method" ? text + strip(info.t) : info.t)}</div>`;
+  if (info && info.loc) {
+    body += info.def ? `<div class="pop-row help">This is where it's declared.</div>`
+      : `<div class="pop-row">Declared at <span class="loc" data-p="${esc(info.loc.p)}" data-l="${info.loc.l}">${esc(locLabel(info.loc))}</span> <span class="help">(⌘-click a name to jump)</span></div>`;
+  }
+  if (info && (info.k === "pkg" || info.k === "ext")) {
+    const url = "https://pkg.go.dev/" + info.pkg + (info.k === "ext" ? "#" + text : "");
+    body += `<div class="pop-row">Package <code>${esc(info.pkg)}</code> · <a href="${esc(url)}" target="_blank" rel="noopener">docs on pkg.go.dev ↗</a></div>`;
+  }
+  const doc = S.cur.lang === "go" && ((info && info.u) || !info) ? GO_DOC[text] : null;
+  if (doc) body += `<div class="expl">${mdInline(doc)}</div>`;
+  if (!info && kind === "word" && (S.cur.go || !LSP_LANGS.has(S.cur.lang))) body += `<div class="pop-row"><button data-a="search">Find “${esc(text)}” in the repo</button></div>`;
+  if (!info && S.cur.lang === "go" && kind === "word") body += `<div class="pop-row help">The type-checker couldn't resolve this name. Ask, and the assistant will work it out.</div>`;
+  body += `<div id="symMore"></div>`;
+  body += `<div class="qs">${quickQuestions(ti).map(q => `<button data-q="${esc(q)}">${esc(q)}</button>`).join("")}</div>`;
+  body += `<form class="pop-ask"><input placeholder="Ask about ${esc(text)}…"><button class="primary">Ask</button><button type="button" data-a="change" title="Describe a change involving ${esc(text)}; get a precise request for a coding agent">✎ Change…</button></form>`;
+
+  const pop = $("#pop");
+  pop.innerHTML = `<div class="pop-h"><span class="badge ${kind}">${esc(KIND_LABEL[kind] || kind)}</span><code>${esc(text)}</code><button class="ghost x-close" data-a="close">✕</button></div><div class="pop-b">${body}</div>`;
+  pop.classList.add("on");
+  placePop(el);
+  if (info && info.key) loadSym(info, text);
+  else if (!S.cur.go && kind === "word" && LSP_LANGS.has(S.cur.lang)) { popTi = ti; loadLookup(ti); }
+}
+function strip(sig) { return sig.replace(/^func/, ""); }
+
+function placePop(el) {
+  const pop = $("#pop"), r = el.getBoundingClientRect();
+  const w = pop.offsetWidth, h = pop.offsetHeight;
+  let left = Math.min(Math.max(8, r.left - 20), window.innerWidth - w - 8);
+  let top = r.bottom + 6;
+  if (top + h > window.innerHeight - 8 && r.top - h - 6 > 8) top = r.top - h - 6;
+  pop.style.left = left + "px";
+  pop.style.top = Math.max(8, Math.min(top, window.innerHeight - h - 8)) + "px";
+}
+
+async function loadSym(info, text) {
+  let d;
+  try { d = await api("/api/sym", { root: S.root, key: info.key }); } catch { return; }
+  const box = $("#symMore");
+  if (!box || !popCtx || popCtx.name !== text) return;
+  let h = "";
+  if (d.doc) h += `<div class="pop-doc">${esc(d.doc)}</div>`;
+  if (d.decl) h += `<pre>${highlight(d.decl, "go")}</pre>`;
+  if (d.docURL) h += `<div class="pop-row"><a href="${esc(d.docURL)}" target="_blank" rel="noopener">docs on pkg.go.dev ↗</a></div>`;
+  const rows = (list, fmt) => list.map(m => `<div class="mrow"${m.loc ? ` data-p="${esc(m.loc.p)}" data-l="${m.loc.l}"` : ""}>${fmt(m)}</div>`).join("");
+  if (d.methods && d.methods.length)
+    h += `<details class="pop-sec" open><summary>Methods (${d.methods.length})</summary>${rows(d.methods, m => `${esc(m.n)}<span class="dim">${esc(m.t)}</span>`)}</details>`;
+  if (d.implements && d.implements.length)
+    h += `<details class="pop-sec" open><summary>Implements</summary>${rows(d.implements, m => `${esc(m.n)}${m.ptr ? ` <span class="dim">(as *${esc(d.name)})</span>` : ""}`)}</details>`;
+  if (d.implementedBy && d.implementedBy.length)
+    h += `<details class="pop-sec" open><summary>Implemented by</summary>${rows(d.implementedBy, m => `${m.ptr ? "*" : ""}${esc(m.n)}`)}</details>`;
+  const uses = d.refs.filter(r => !r.def);
+  if (uses.length) {
+    h += `<details class="pop-sec"${uses.length <= 6 ? " open" : ""}><summary>Used ${d.refCount - (d.refs.length - uses.length)} time${uses.length === 1 ? "" : "s"} in this repo</summary>` +
+      uses.map(r => `<div class="mrow" data-p="${esc(r.p)}" data-l="${r.l}"><span class="dim">${esc(r.p)}:${r.l}</span>  ${esc(r.text)}</div>`).join("") + `</details>`;
+  } else if (d.loc && !d.loc.p.startsWith("/")) {
+    h += `<div class="pop-row help">Not used anywhere else in this repo.</div>`;
+  }
+  box.innerHTML = h;
+  const el = $(".x.active");
+  if (el) placePop(el);
+}
+
+function closePop() {
+  $("#pop").classList.remove("on");
+  $$(".x.active").forEach(x => x.classList.remove("active"));
+  popCtx = null;
+}
+
+$("#pop").addEventListener("click", e => {
+  const t = e.target;
+  if (t.closest("[data-a=close]")) { closePop(); return; }
+  if (t.closest("[data-a=refs]")) { if (popTi) loadRefs(popTi); return; }
+  if (t.closest("[data-a=search]")) { const n = popCtx.name; closePop(); searchFor(n); return; }
+  if (t.closest("[data-a=change]")) { const ctx = popCtx; closePop(); startChange(ctx); return; }
+  const loc = t.closest("[data-p]");
+  if (loc && !t.closest("a[href]")) { openFile(loc.dataset.p, +loc.dataset.l); return; }
+  const q = t.closest("[data-q]");
+  if (q) { const ctx = popCtx; closePop(); ask(q.dataset.q, ctx); }
+});
+$("#pop").addEventListener("submit", e => {
+  e.preventDefault();
+  const v = e.target.querySelector("input").value.trim();
+  if (!v) return;
+  const ctx = popCtx; closePop(); ask(v, ctx);
+});
+document.addEventListener("mousedown", e => {
+  if ($("#pop").classList.contains("on") && !e.target.closest("#pop") && !e.target.closest(".x")) closePop();
+});
+
+/* ------------------------------------------------------------------ links in answers */
+
+const REF_RE = /(^|[\s(\[`'">])((?:\/|\.\/)?(?:[\w.@!+-]+\/)*[\w.@!+-]+\.(?:go|mod|sum|md|js|mjs|ts|tsx|jsx|py|json|ya?ml|toml|sh|html|css|txt|proto|sql|c|h|cc|cpp|rs|java|kt))(?::(\d+)(?:[-–](\d+))?)?(?![\w/])/g;
+
+function resolveRef(p) {
+  if (p.startsWith("./")) p = p.slice(2);
+  if (p.startsWith("/")) {
+    if (S.root && p.startsWith(S.root + "/")) p = p.slice(S.root.length + 1);
+    else return p.startsWith(B.goroot + "/") || (B.modcache && p.startsWith(B.modcache + "/")) ? p : null;
+  }
+  if (S.fileSet.has(p)) return p;
+  const m = S.files.filter(f => f.endsWith("/" + p));
+  return m.length ? m.sort((a, b) => a.length - b.length)[0] : null;
+}
+
+function linkify(html) {
+  return html.replace(REF_RE, (m, pre, p, l1, l2) => {
+    const rp = resolveRef(p.replace(/&amp;/g, "&"));
+    if (!rp) return m;
+    return `${pre}<a class="ref" data-p="${esc(rp)}" data-l="${l1 || ""}" data-e="${l2 || ""}">${p}${l1 ? ":" + l1 : ""}${l2 ? "-" + l2 : ""}</a>`;
+  });
+}
+
+function openRef(a) {
+  const l = +a.dataset.l || 0, e = +a.dataset.e || l;
+  openFile(a.dataset.p, l, { end: e });
+}
+
+/* ------------------------------------------------------------------ markdown */
+
+function mdInline(s) {
+  const codes = [];
+  const stash = [];
+  const keep = html => { stash.push(html); return `\u0001${stash.length - 1}\u0001`; };
+  const raw = u => u.replace(/&amp;/g, "&");
+  let h = esc(s).replace(/`([^`]+)`/g, (_, c) => { codes.push(c); return `\u0000${codes.length - 1}\u0000`; });
+  h = h.replace(/!\[([^\]]*)\]\(\s*([^)\s]+)(?:\s+&quot;[^&]*&quot;)?\s*\)/g, (_, alt, u) => keep(`<img alt="${alt}" src="${esc(imgURL(raw(u)))}">`))
+       .replace(/\[([^\]]+)\]\(\s*([^)\s]+)(?:\s+&quot;[^&]*&quot;)?\s*\)/g, (_, t, u) => keep(linkTo(t, raw(u))))
+       .replace(/&lt;(https?:\/\/[^\s&]+)&gt;/g, (_, u) => keep(`<a href="${u}" target="_blank" rel="noopener">${u}</a>`))
+       .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+       .replace(/(^|[\s(])\*([^*\s][^*]*)\*(?=[\s).,;:!?]|$)/g, "$1<i>$2</i>")
+       .replace(/(^|[\s(])_([^_\s][^_]*)_(?=[\s).,;:!?]|$)/g, "$1<i>$2</i>");
+  h = linkify(h).replace(/~~([^~]+)~~/g, "<s>$1</s>");
+  while (h.includes("\u0001")) h = h.replace(/\u0001(\d+)\u0001/g, (_, i) => stash[+i]); // links can wrap images
+  return h.replace(/\u0000(\d+)\u0000/g, (_, i) => {
+    const c = codes[+i];
+    const linked = linkify(" " + c).slice(1);
+    return linked !== c && /^<a [^>]+>[^<]+<\/a>$/.test(linked) ? linked.replace(/^(<a [^>]+>)(.*)(<\/a>)$/, "$1<code>$2</code>$3") : `<code>${c}</code>`;
+  });
+}
+
+// MD_BASE is the folder of the markdown file being rendered as a document
+// (null while rendering chat answers). Relative links resolve against it.
+let MD_BASE = null;
+
+function normPath(p) {
+  const abs = p.startsWith("/"), out = [];
+  for (const seg of p.split("/")) {
+    if (!seg || seg === ".") continue;
+    if (seg === "..") out.pop(); else out.push(seg);
+  }
+  return (abs ? "/" : "") + out.join("/");
+}
+function relPath(u) {
+  u = decodeURIComponent(u.split("#")[0].split("?")[0]);
+  if (u.startsWith("/")) return normPath(u.slice(1)); // GitHub style: repo-root relative
+  return normPath((MD_BASE ? MD_BASE + "/" : "") + u);
+}
+function slug(t) {
+  return t.toLowerCase().replace(/<[^>]+>/g, "").replace(/&[a-z]+;|&#\d+;/g, "").trim().replace(/[^\w\s-]/g, "").replace(/\s/g, "-");
+}
+function imgURL(u) {
+  if (/^(https?:|data:)/i.test(u) || MD_BASE == null) return u;
+  return `/api/raw?root=${encodeURIComponent(S.root)}&path=${encodeURIComponent(relPath(u))}&t=${B.token}`;
+}
+function linkTo(text, u) {
+  if (/^(https?:|mailto:)/i.test(u)) return `<a href="${esc(u)}" target="_blank" rel="noopener">${text}</a>`;
+  if (u.startsWith("#")) return `<a class="anchor" data-anchor="${esc(slug(decodeURIComponent(u.slice(1))))}">${text}</a>`;
+  if (MD_BASE == null) return text;
+  let p = relPath(u);
+  const anchor = u.includes("#") ? u.split("#")[1] : "";
+  if (!S.fileSet.has(p)) {
+    const readme = S.files.find(f => f.toLowerCase() === (p ? p + "/" : "") + "readme.md");
+    if (readme) p = readme;
+  }
+  if (!S.fileSet.has(p) && !(p.startsWith("/") && resolveRef(p))) return `<span title="${esc(u)}">${text}</span>`;
+  const m = /^L(\d+)/.exec(anchor);
+  return `<a class="ref" data-p="${esc(p)}" data-l="${m ? m[1] : ""}" data-e="">${text}</a>`;
+}
+
+// Docs often embed bits of HTML; keep images and line breaks, drop other tags.
+function htmlToMd(src) {
+  return src.replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/<img\b[^>]*?\bsrc=["']([^"']+)["'][^>]*>/gi, (m, u) => { const a = /\balt=["']([^"']*)["']/i.exec(m); return `![${a ? a[1] : ""}](${u})`; })
+    .replace(/<a\b[^>]*?\bhref=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi, (_, u, t) => `[${t.trim() || u}](${u})`)
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/?(p|div|span|picture|source|center|details|summary|sup|sub|kbd|b|strong|i|em|h[1-6]|table|thead|tbody|tr|td|th|ul|ol|li)\b[^>]*>/gi, "");
+}
+
+function md(src) {
+  const lines = src.split("\n");
+  let out = "", i = 0;
+  const isBlockStart = l => /^\s*```/.test(l) || /^#{1,6}\s/.test(l) || /^\s*([-*+]|\d+[.)])\s+/.test(l) || /^\s*>/.test(l) || /^\s*\|.*\|\s*$/.test(l) || /^\s{0,3}([-*_])(\s*\1){2,}\s*$/.test(l);
+  while (i < lines.length) {
+    const l = lines[i];
+    let m;
+    if ((m = /^\s*```\s*([\w+-]*)/.exec(l))) {
+      const lang = (m[1] || (MD_BASE != null || !S.cur ? "" : S.cur.lang)).toLowerCase(), buf = [];
+      i++;
+      while (i < lines.length && !/^\s*```\s*$/.test(lines[i])) buf.push(lines[i++]);
+      i++;
+      const lg = { golang: "go", javascript: "js", typescript: "ts", typescriptreact: "ts", javascriptreact: "js", tsx: "ts", jsx: "js", python: "py", python3: "py", bash: "sh", shell: "sh", zsh: "sh", console: "sh", cpp: "c", "c++": "c", objc: "c", "objective-c": "c", h: "c", swift: "swift" }[lang] || lang;
+      if (lg === "request" && MD_BASE == null) {
+        out += `<div class="req"><div class="req-h">✎ Change request for a coding agent<button data-a="copyreq">Copy</button></div><pre>${esc(buf.join("\n"))}</pre></div>`;
+        continue;
+      }
+      out += `<pre><code>${KW[lg] || lg === "go" ? highlight(buf.join("\n"), lg) : esc(buf.join("\n"))}</code></pre>`;
+      continue;
+    }
+    if ((m = /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(l))) {
+      const n = MD_BASE != null ? m[1].length : Math.min(4, m[1].length + 1), inner = mdInline(m[2]);
+      out += `<h${n}${MD_BASE != null ? ` id="${esc(slug(m[2]))}"` : ""}>${inner}</h${n}>`; i++; continue;
+    }
+    if (/^\s{0,3}([-*_])(\s*\1){2,}\s*$/.test(l)) { out += "<hr>"; i++; continue; }
+    if (/^\s*([-*+]|\d+[.)])\s+/.test(l)) {
+      const ordered = /^\s*\d/.test(l);
+      out += ordered ? "<ol>" : "<ul>";
+      while (i < lines.length && (/^\s*([-*+]|\d+[.)])\s+/.test(lines[i]) || (/^\s{2,}\S/.test(lines[i]) && !/^\s*```/.test(lines[i])))) {
+        const im = /^(\s*)([-*+]|\d+[.)])\s+(.*)/.exec(lines[i]);
+        if (im) {
+          const depth = Math.floor(im[1].length / 2);
+          const task = /^\[( |x|X)\]\s+(.*)/.exec(im[3]);
+          out += `<li${depth ? ` style="margin-left:${depth * 16}px"` : ""}${task ? ` class="task"` : ""}>` +
+            (task ? `<input type="checkbox" disabled${task[1] !== " " ? " checked" : ""}> ${mdInline(task[2])}` : mdInline(im[3]));
+        } else out += " " + mdInline(lines[i].trim());
+        i++;
+      }
+      out += ordered ? "</ol>" : "</ul>";
+      continue;
+    }
+    if (/^\s*>/.test(l)) {
+      const buf = [];
+      while (i < lines.length && /^\s*>/.test(lines[i])) buf.push(lines[i++].replace(/^\s*>\s?/, ""));
+      out += `<blockquote>${md(buf.join("\n"))}</blockquote>`;
+      continue;
+    }
+    if (/^\s*\|.*\|\s*$/.test(l) && i + 1 < lines.length && /^\s*\|?[\s:|-]+\|?\s*$/.test(lines[i + 1])) {
+      const cells = r => r.trim().replace(/^\||\|$/g, "").split("|").map(c => c.trim());
+      out += "<table><tr>" + cells(l).map(c => `<th>${mdInline(c)}</th>`).join("") + "</tr>";
+      i += 2;
+      while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) out += "<tr>" + cells(lines[i++]).map(c => `<td>${mdInline(c)}</td>`).join("") + "</tr>";
+      out += "</table>";
+      continue;
+    }
+    if (!l.trim()) { i++; continue; }
+    const buf = [l];
+    i++;
+    while (i < lines.length && lines[i].trim() && !isBlockStart(lines[i])) buf.push(lines[i++]);
+    out += `<p>${mdInline(buf.join("\n")).replace(/\n/g, "<br>")}</p>`;
+  }
+  return out;
+}
+
+/* ------------------------------------------------------------------ chat */
+
+function chatKey() { return "chat:" + S.root; }
+function loadChat() {
+  S.chat = store.get(chatKey(), null) || { session: "", msgs: [] };
+  S.chat.msgs.forEach(m => { if (m.pending) { m.pending = false; m.stopped = true; } });
+  renderChat();
+}
+function saveChat() { store.set(chatKey(), { session: S.chat.session, msgs: S.chat.msgs.slice(-80) }); }
+
+// Starter questions: generic ones for the repo's main language right away,
+// replaced by questions Claude writes for this specific repo (cached).
+function suggestions() {
+  const cached = S.root && store.get("sugg:" + S.root, null);
+  if (cached && cached.length) return cached;
+  if (S.root && B.claude && !S.suggesting && !S.suggestFailed) fetchSuggestions();
+  const counts = {};
+  for (const f of S.files) { const l = langOfPath(f); if (l) counts[l] = (counts[l] || 0) + 1; }
+  const main = LANG_NAME[Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0]] || "";
+  return [
+    { label: "Give me a tour of this repo", question: "Give me a tour of this repository: what it does, its main parts, and where execution starts." },
+    { label: "Trace the main flow end to end", question: "Pick the most important user-facing action in this repository and trace it end to end: every function it passes through (with file:line), the data it carries, and where state changes." },
+    { label: "Where are the hot spots and fragile parts?", question: "Where are the performance hot spots, the fragile or tangled parts, and the obvious extension points in this repository? For each, say what a good change would be." },
+    { label: "Suggest a reading order", question: "Suggest a reading order for this codebase, with what to look for in each file." },
+  ];
+}
+
+async function fetchSuggestions() {
+  const root = S.root;
+  S.suggesting = true;
+  try {
+    const r = await api("/api/suggest", { root });
+    store.set("sugg:" + root, r.suggestions);
+  } catch { if (S.root === root) S.suggestFailed = true; }
+  if (S.root === root) S.suggesting = false;
+  if (S.root === root && !S.chat.msgs.length) renderChat();
+}
+
+// Scrolling: the chat never follows a streaming answer. Sending a question
+// brings that question to the top of the panel; the answer grows below it and
+// the user scrolls at their own pace. "how": "bottom" (opening a saved chat),
+// "question" (just asked), "keep" (re-render in place).
+function renderChat(how = "bottom") {
+  const box = $("#msgs");
+  if (!S.chat.msgs.length) {
+    box.innerHTML = `<div class="empty-chat">
+      ${B.claude ? "" : `<p class="err">The <code>claude</code> CLI wasn't found when coderead started, so the tutor can't answer. Install Claude Code and restart coderead.</p>`}
+      <p>Ask anything about <b>${esc(S.name || "this repo")}</b>. For example:</p>
+      <ul>${suggestions().map(q => `<li><a href="#" data-ask="${esc(q.question)}">${esc(q.label)}</a></li>`).join("")}</ul>
+      ${S.suggesting ? `<p class="help dots">Tailoring suggestions to this repo</p>` : S.root && B.claude ? `<p class="help"><a href="#" data-a="resuggest">↻ Suggest other questions</a></p>` : ""}
+      <p class="help">Answers come from <code>claude</code> running in the repo folder with read-only tools, using your Claude account.</p></div>`;
+    return;
+  }
+  box.innerHTML = S.chat.msgs.map((m, i) => `<div class="msg ${m.role}" data-i="${i}">${msgHTML(m)}</div>`).join("");
+  if (how === "bottom") box.scrollTop = box.scrollHeight;
+  else if (how === "question") {
+    const q = [...box.querySelectorAll(".msg.user")].pop(), a = box.lastElementChild;
+    if (q) {
+      // Room below the question so it can sit at the top before the answer exists.
+      if (a && a !== q) a.style.minHeight = Math.max(0, box.clientHeight - q.offsetHeight - 40) + "px";
+      box.scrollTop = q.offsetTop - box.offsetTop - 8;
+    }
+  }
+  updateJump();
+}
+
+// A small "↓" button appears when there's unread text below the visible part.
+function updateJump() {
+  const box = $("#msgs"), b = $("#jump");
+  if (!box || !b) return;
+  const below = box.scrollHeight - box.scrollTop - box.clientHeight > 40;
+  b.classList.toggle("on", below);
+  b.textContent = below && S.busy ? "↓ Writing below" : "↓";
+}
+
+function msgHTML(m) {
+  if (m.role === "user") return (m.ctx ? `<span class="ctx">${linkify(" " + esc(m.ctx)).slice(1)}</span>` : "") + esc(m.text);
+  let h = "";
+  if (m.tools && m.tools.length) h += `<div class="tools">${m.tools.map(t => `<div>${esc(t)}</div>`).join("")}</div>`;
+  if (m.text) h += md(m.text);
+  if (m.pending && !m.text) h += `<div class="help dots">${m.tools && m.tools.length ? "Reading the code" : "Thinking"}</div>`;
+  if (m.error) h += `<div class="err">${esc(m.error)}</div>`;
+  if (m.stopped && !m.error) h += `<div class="help">(stopped)</div>`;
+  if (!m.pending && !m.error && m.text && !/```request/.test(m.text))
+    h += `<div class="msg-acts"><button class="ghost" data-a="toreq" title="Write what we just discussed as a precise request for a coding agent">✎ Draft a change request from this</button></div>`;
+  return h;
+}
+
+let renderQueued = false;
+function updateMsg(m) {
+  if (renderQueued) return;
+  renderQueued = true;
+  requestAnimationFrame(() => {
+    renderQueued = false;
+    const i = S.chat.msgs.indexOf(m);
+    const el = $(`#msgs .msg[data-i="${i}"]`);
+    if (!el) { renderChat("keep"); return; }
+    const box = $("#msgs"), top = box.scrollTop;
+    el.innerHTML = msgHTML(m);
+    box.scrollTop = top; // stay put while text arrives
+    updateJump();
+  });
+}
+
+function snippet(from, to, mark) {
+  const L = S.cur.lines;
+  const w = String(to).length;
+  const out = [];
+  for (let i = Math.max(1, from); i <= Math.min(L.length, to); i++)
+    out.push(`${i === mark ? "→" : " "}${String(i).padStart(w)} | ${L[i - 1]}`);
+  return out.join("\n");
+}
+
+function ctxLabel(ctx) {
+  if (!ctx) return "";
+  if (ctx.kind === "symbol") return `${ctx.file}:${ctx.line} · ${ctx.name}`;
+  if (ctx.kind === "lines") return ctx.from === ctx.to ? `${ctx.file}:${ctx.from}` : `${ctx.file}:${ctx.from}-${ctx.to}`;
+  return "";
+}
+
+function buildPrompt(q, ctx) {
+  let p = "";
+  const fence = S.cur ? S.cur.lang === "go" ? "go" : S.cur.lang : "";
+  if (ctx && ctx.kind === "symbol" && S.cur && S.cur.path === ctx.file) {
+    p += `[Browser context] I clicked on \`${ctx.name}\` at ${ctx.file}:${ctx.line}:${ctx.col}.\n`;
+    if (ctx.facts) p += `The browser's language tools say: ${ctx.facts}\n`;
+    p += `Code around it (→ marks the line):\n\`\`\`${fence}\n${snippet(ctx.line - 10, ctx.line + 10, ctx.line)}\n\`\`\`\n\n`;
+  } else if (ctx && ctx.kind === "lines" && S.cur && S.cur.path === ctx.file) {
+    const to = Math.min(ctx.to, ctx.from + 250);
+    p += `[Browser context] I selected ${ctx.file}:${ctx.from}-${ctx.to}:\n\`\`\`${fence}\n${snippet(ctx.from, to, 0)}\n\`\`\`\n\n`;
+  } else if (S.cur) {
+    p += S.cur.view === "preview" ? `[Browser context] I'm reading the rendered markdown of ${S.cur.path}.\n\n`
+      : `[Browser context] I'm looking at ${S.cur.path} around line ${visibleLine()}.\n\n`;
+  }
+  return p + q;
+}
+
+async function ask(question, ctx, shown) {
+  if (S.busy) return;
+  if (!S.root) { openModal(); return; }
+  ctx = ctx || S.chip;
+  S.chip = null; renderChip();
+  const um = { role: "user", text: shown ? "✎ Change: " + shown : question, ctx: ctxLabel(ctx) };
+  const am = { role: "assistant", text: "", tools: [], pending: true };
+  S.chat.msgs.push(um, am);
+  renderChat("question");
+  await stream(am, buildPrompt(question, ctx), true);
+}
+
+async function stream(am, prompt, mayRetry) {
+  S.busy = true; setBusy();
+  const ctrl = new AbortController();
+  S.abort = ctrl;
+  try {
+    const r = await fetch("/api/ask", {
+      method: "POST", signal: ctrl.signal,
+      headers: { "X-Token": B.token, "Content-Type": "application/json" },
+      body: JSON.stringify({ root: S.root, prompt, session: S.chat.session, model: $("#model").value, effort: $("#effort").value }),
+    });
+    if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || r.statusText); }
+    const reader = r.body.getReader(), dec = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let nl;
+      while ((nl = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, nl); buf = buf.slice(nl + 1);
+        if (!line) continue;
+        let ev; try { ev = JSON.parse(line); } catch { continue; }
+        if (ev.t === "session") S.chat.session = ev.id;
+        else if (ev.t === "block") { if (am.text && !am.text.endsWith("\n\n")) am.text += "\n\n"; }
+        else if (ev.t === "text") am.text += ev.d;
+        else if (ev.t === "tool") am.tools.push(`${ev.name === "Read" ? "📄" : ev.name === "Grep" ? "🔎" : "📁"} ${ev.name} ${toolDetail(ev.detail)}`);
+        else if (ev.t === "done") {
+          if (ev.session) S.chat.session = ev.session;
+          if (ev.error) am.error = ev.result || ev.subtype || "The tutor stopped with an error.";
+          else if (!am.text && ev.result) am.text = ev.result;
+        } else if (ev.t === "error") am.error = ev.d || "claude exited unexpectedly";
+        updateMsg(am);
+      }
+    }
+  } catch (e) {
+    if (e.name === "AbortError") am.stopped = true;
+    else am.error = e.message;
+  }
+  S.busy = false; S.abort = null; setBusy();
+  if (am.error && mayRetry && S.chat.session && !am.text && /no conversation|not found|session/i.test(am.error)) {
+    // The saved session is gone (e.g. cleaned up): start a fresh one.
+    S.chat.session = ""; am.error = ""; am.tools = [];
+    return stream(am, prompt, false);
+  }
+  am.pending = false;
+  updateMsg(am);
+  saveChat();
+}
+
+function toolDetail(d) {
+  if (!d) return "";
+  if (S.root) d = d.split(S.root + "/").join("");
+  if (B.goroot) d = d.split(B.goroot + "/").join("$GOROOT/");
+  return d;
+}
+
+function setBusy() {
+  const b = $("#sendBtn");
+  b.textContent = S.busy ? "Stop" : S.mode === "change" ? "Draft" : "Ask";
+  b.classList.toggle("primary", !S.busy);
+  updateJump();
+}
+
+function renderChip() {
+  const box = $("#chipBox");
+  if (!S.chip) { box.innerHTML = ""; return; }
+  box.innerHTML = `<span class="chip"><span>📎 ${esc(ctxLabel(S.chip))}</span><button title="Remove">✕</button></span>`;
+}
+$("#chipBox").addEventListener("click", e => { if (e.target.closest("button")) { S.chip = null; renderChip(); } });
+
+const CHANGE_PROMPT = `[Draft a change request] Here is a change I want, in my own words:
+
+«QUESTION»
+
+Read the relevant code first. Then answer in three parts:
+1. **How it works today**: the exact files, functions (with \`path:line\`) and data flow behind what I described, and the root cause of the behavior I want to change. Use the precise technical terms (name the pattern, algorithm or cost involved).
+2. **Options**: one to three concrete ways to make the change, each with its trade-offs (complexity, performance, risk, what else it touches). Recommend one.
+3. **The request**: for the recommended option, a self-contained instruction for a coding agent that hasn't seen this conversation, in a fenced block that starts with \`\`\`request. Write it in the imperative. Include: the goal in one sentence; which files and functions to change and how; the invariants and existing behavior to preserve; edge cases; and how to verify it (tests to add or run, what to check by hand). Add code only where a short snippet removes ambiguity.
+
+If my description is ambiguous, state the assumption you made, and end with one question that would sharpen the request.`;
+
+S.mode = store.get("mode", "ask") === "change" ? "change" : "ask";
+function setMode(m) {
+  S.mode = m; store.set("mode", m);
+  $$(".modes [data-mode]").forEach(b => b.classList.toggle("on", b.dataset.mode === m));
+  $("#q").placeholder = m === "change"
+    ? "Describe the change in your own words, e.g. “search feels slow”…  (Enter to send)"
+    : "Ask about this code…  (Enter to send)";
+  $("#modeHelp").textContent = m === "change" ? "You get: how it works now, options, and a request to copy into a coding agent" : "";
+  setBusy();
+}
+$(".modes").addEventListener("click", e => { const b = e.target.closest("[data-mode]"); if (b) { setMode(b.dataset.mode); $("#q").focus(); } });
+function startChange(ctx) { S.chip = ctx; renderChip(); setMode("change"); $("#q").focus(); }
+
+function send() {
+  if (S.busy) { if (S.abort) S.abort.abort(); return; }
+  const q = $("#q");
+  const v = q.value.trim();
+  if (!v) return;
+  q.value = ""; autosize();
+  ask(S.mode === "change" ? CHANGE_PROMPT.replace("QUESTION", v) : v, null, S.mode === "change" ? v : null);
+}
+$("#sendBtn").onclick = send;
+$("#msgs").addEventListener("scroll", updateJump, { passive: true });
+$("#jump").onclick = () => { const b = $("#msgs"); b.scrollTo({ top: b.scrollHeight, behavior: "smooth" }); };
+const autosize = () => { const q = $("#q"); q.style.height = "auto"; q.style.height = Math.min(200, q.scrollHeight) + "px"; };
+$("#q").addEventListener("input", autosize);
+$("#q").addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); }
+});
+$("#msgs").addEventListener("click", e => {
+  const a = e.target.closest("a.ref");
+  if (a) { e.preventDefault(); openRef(a); return; }
+  const q = e.target.closest("[data-ask]");
+  if (q) { e.preventDefault(); ask(q.dataset.ask, null); return; }
+  const cp = e.target.closest("[data-a=copyreq]");
+  if (cp) {
+    const text = cp.closest(".req").querySelector("pre").textContent;
+    navigator.clipboard.writeText(text).then(() => { cp.textContent = "Copied ✓"; setTimeout(() => cp.textContent = "Copy", 1500); },
+      () => { cp.textContent = "Select and copy"; });
+    return;
+  }
+  if (e.target.closest("[data-a=toreq]")) {
+    ask(CHANGE_PROMPT.replace("«QUESTION»", "«Based on what we just discussed: the change or improvement your last answer points to. If there are several, pick the most valuable one.»"), null, "a request from the last answer");
+    return;
+  }
+  if (e.target.closest("[data-a=resuggest]")) {
+    e.preventDefault(); store.set("sugg:" + S.root, null); S.suggestFailed = false; fetchSuggestions(); renderChat();
+  }
+});
+$("#newChat").onclick = () => {
+  if (S.busy && S.abort) S.abort.abort();
+  S.chat = { session: "", msgs: [] }; saveChat(); renderChat();
+};
+for (const id of ["model", "effort"]) {
+  const el = $("#" + id);
+  el.value = store.get(id, id === "model" ? "sonnet" : "medium");
+  el.addEventListener("change", () => store.set(id, el.value));
+}
+
+/* ------------------------------------------------------------------ folder dialog */
+
+let dirCur = "";
+async function browse(dir) {
+  try {
+    const r = await api("/api/browse", dir ? { dir } : {});
+    dirCur = r.dir;
+    $("#dirInput").value = r.dir;
+    $("#dirList").innerHTML = r.entries.map(e => `<div class="de" data-n="${esc(e.name)}">
+        <span>📁</span><span class="nm">${esc(e.name)}</span>
+        ${e.gomod ? `<span class="tag go">GO</span>` : ""}${e.git ? `<span class="tag">GIT</span>` : ""}
+        ${e.gomod || e.git ? `<button data-open="${esc(e.name)}">Open</button>` : ""}</div>`).join("")
+      || `<div class="muted">No subfolders.</div>`;
+    $("#dirOpen").textContent = r.gomod || r.git ? `Open ${r.dir.split("/").pop()}` : "Open this folder";
+  } catch (e) { $("#dirList").innerHTML = `<div class="muted err">${esc(e.message)}</div>`; }
+}
+function openModal() {
+  $("#modal").classList.add("on");
+  const recent = store.get("recent", []);
+  $("#recent").innerHTML = recent.length ? "Recent: " + recent.map(r => `<button data-r="${esc(r)}" title="${esc(r)}">${esc(r.split("/").pop())}</button>`).join("") : "";
+  browse(S.root ? S.root.split("/").slice(0, -1).join("/") || "/" : B.home);
+}
+function closeModal() { $("#modal").classList.remove("on"); }
+const join = (a, b) => (a === "/" ? "" : a) + "/" + b;
+$("#dirList").addEventListener("click", e => {
+  const o = e.target.closest("[data-open]");
+  if (o) { closeModal(); setRoot(join(dirCur, o.dataset.open)); return; }
+  const d = e.target.closest("[data-n]");
+  if (d) browse(join(dirCur, d.dataset.n));
+});
+$("#recent").addEventListener("click", e => { const r = e.target.closest("[data-r]"); if (r) { closeModal(); setRoot(r.dataset.r); } });
+$("#dirUp").onclick = () => browse(dirCur.split("/").slice(0, -1).join("/") || "/");
+$("#dirGo").onclick = () => browse($("#dirInput").value.trim());
+$("#dirInput").addEventListener("keydown", e => { if (e.key === "Enter") browse(e.target.value.trim()); });
+$("#dirOpen").onclick = () => { closeModal(); setRoot(dirCur); };
+$("#dirCancel").onclick = closeModal;
+$("#repoBtn").onclick = openModal;
+$("#modal").addEventListener("mousedown", e => { if (e.target.id === "modal" && S.root) closeModal(); });
+
+/* ------------------------------------------------------------------ layout + keys */
+
+$$(".resizer").forEach(r => {
+  r.addEventListener("mousedown", e => {
+    e.preventDefault();
+    r.classList.add("drag");
+    const which = r.dataset.r;
+    const move = ev => {
+      const v = which === "side" ? ev.clientX : window.innerWidth - ev.clientX;
+      const px = Math.max(160, Math.min(window.innerWidth * 0.6, v));
+      document.documentElement.style.setProperty("--" + which, px + "px");
+    };
+    const up = () => {
+      r.classList.remove("drag");
+      document.removeEventListener("mousemove", move);
+      document.removeEventListener("mouseup", up);
+      store.set("w-" + which, getComputedStyle(document.documentElement).getPropertyValue("--" + which).trim());
+    };
+    document.addEventListener("mousemove", move);
+    document.addEventListener("mouseup", up);
+  });
+});
+for (const w of ["side", "chat"]) { const v = store.get("w-" + w, null); if (v) document.documentElement.style.setProperty("--" + w, v); }
+
+document.addEventListener("keydown", e => {
+  const mod = e.metaKey || e.ctrlKey;
+  if (e.key === "Escape") { closePop(); if (S.root) closeModal(); }
+  if (e.altKey && e.key === "ArrowLeft") { e.preventDefault(); goBack(); }
+  if (e.altKey && e.key === "ArrowRight") { e.preventDefault(); goFwd(); }
+  if (mod && !e.shiftKey && e.key.toLowerCase() === "p") { e.preventDefault(); setTab("files"); $("#filter").focus(); $("#filter").select(); }
+  if (mod && e.shiftKey && e.key.toLowerCase() === "f") { e.preventDefault(); setTab("search"); $("#searchQ").focus(); $("#searchQ").select(); }
+});
+window.addEventListener("resize", closePop);
+$("#code").addEventListener("scroll", () => { if ($("#pop").classList.contains("on")) { const el = $(".x.active"); if (el) placePop(el); } });
+window.addEventListener("hashchange", () => {
+  const h = parseHash();
+  if (h && S.cur && (h.path !== S.cur.path)) openFile(h.path, h.line);
+});
+
+/* ------------------------------------------------------------------ start */
+
+setMode(S.mode);
+renderChat();
+const startRoot = B.root || store.get("root", "");
+if (startRoot) setRoot(startRoot); else { showEmpty(); openModal(); }
+function showEmpty() { $("#code").innerHTML = `<div class="welcome"><h1>coderead</h1><p>Pick a repository to start exploring.</p></div>`; }
+</script>
+</body>
+</html>
