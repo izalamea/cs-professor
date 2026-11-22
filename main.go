@@ -13,12 +13,14 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	_ "embed"
 	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"go/build"
+	"io"
 	"io/fs"
 	"log"
 	"net"
@@ -46,6 +48,7 @@ type server struct {
 	gorootSrc string
 	modcache  string
 	claude    string // path to the claude CLI
+	pastes    string // where images pasted into the chat are saved
 	loader    *Loader
 	lsp       *lspManager
 	ix        *indexer
@@ -81,6 +84,11 @@ func main() {
 	s.lsp = newLSPManager()
 	s.ix = newIndexer()
 	s.allowed = map[string]bool{}
+	if cache, err := os.UserCacheDir(); err == nil {
+		s.pastes = filepath.Join(cache, "coderead", "pastes")
+	} else {
+		s.pastes = filepath.Join(os.TempDir(), "coderead-pastes")
+	}
 	go func() { // stop language servers on Ctrl-C
 		ch := make(chan os.Signal, 1)
 		signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
@@ -106,6 +114,7 @@ func main() {
 	mux.HandleFunc("GET /api/browse", s.handleBrowse)
 	mux.HandleFunc("POST /api/ask", s.handleAsk)
 	mux.HandleFunc("GET /api/suggest", s.handleSuggest)
+	mux.HandleFunc("POST /api/paste", s.handlePaste)
 
 	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", *port))
 	if err != nil {
@@ -221,7 +230,7 @@ func (s *server) resolve(root, p string) (string, bool) {
 	if ok {
 		return abs, true
 	}
-	for _, base := range []string{root, s.gorootSrc, s.modcache} {
+	for _, base := range []string{root, s.gorootSrc, s.modcache, s.pastes} {
 		if base != "" && strings.HasPrefix(abs, base+string(filepath.Separator)) {
 			return abs, true
 		}
@@ -652,6 +661,9 @@ func (s *server) handleAsk(w http.ResponseWriter, r *http.Request) {
 		"--append-system-prompt", fmt.Sprintf(tutorPrompt, s.gorootSrc, s.modcache),
 		"--add-dir", s.gorootSrc,
 	}
+	if isDir(s.pastes) {
+		args = append(args, "--add-dir", s.pastes) // pasted screenshots
+	}
 	if s.modcache != "" {
 		args = append(args, "--add-dir", s.modcache)
 	}
@@ -1053,4 +1065,36 @@ func mainFiles(root string, files []string, n int) []string {
 		out = append(out, cs[i].f)
 	}
 	return out
+}
+
+// ---------------------------------------------------------------- pasted images
+
+// handlePaste saves an image pasted into the chat (the raw bytes are the
+// request body) and returns its path. The assistant reads it with its Read
+// tool, which understands images. Files are named by content hash, so pasting
+// the same screenshot twice stores it once.
+func (s *server) handlePaste(w http.ResponseWriter, r *http.Request) {
+	data, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 20<<20))
+	if err != nil {
+		writeErr(w, http.StatusRequestEntityTooLarge, "image too large (20 MB max)")
+		return
+	}
+	ext := map[string]string{"image/png": ".png", "image/jpeg": ".jpg", "image/gif": ".gif", "image/webp": ".webp"}[http.DetectContentType(data)]
+	if ext == "" {
+		writeErr(w, http.StatusUnsupportedMediaType, "only PNG, JPEG, GIF and WebP images can be pasted")
+		return
+	}
+	if err := os.MkdirAll(s.pastes, 0o700); err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	sum := sha256.Sum256(data)
+	path := filepath.Join(s.pastes, hex.EncodeToString(sum[:8])+ext)
+	if _, err := os.Stat(path); err != nil {
+		if err := os.WriteFile(path, data, 0o600); err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
+	writeJSON(w, map[string]string{"path": path})
 }

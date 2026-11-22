@@ -216,6 +216,15 @@ a.ref:hover { border-bottom-style: solid; }
 .req pre { margin: 0; border: 0; border-radius: 0; white-space: pre-wrap; font: 12.5px/1.5 var(--mono); }
 .msg-acts { margin-top: 6px; }
 .msg-acts button { font-size: 11.5px; padding: 2px 8px; }
+#atts { display: flex; flex-wrap: wrap; gap: 6px; }
+#atts:empty { display: none; }
+.att { position: relative; width: 64px; height: 48px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--bg2, #0000); }
+.att img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.att.loading { display: grid; place-items: center; font-size: 11px; color: var(--dim, #888); }
+.att button { position: absolute; top: 1px; right: 1px; padding: 0 5px; font-size: 11px; line-height: 16px; border-radius: 8px; }
+.composer.drop { outline: 2px dashed var(--accent); outline-offset: -4px; }
+.msg-imgs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.msg-imgs img { max-width: 220px; max-height: 140px; border-radius: 6px; border: 1px solid var(--line); cursor: zoom-in; }
 .crow { display: flex; gap: 6px; align-items: flex-end; }
 #q { flex: 1; resize: none; min-height: 38px; max-height: 200px; }
 
@@ -299,8 +308,9 @@ a.ref:hover { border-bottom-style: solid; }
       <div class="composer">
         <div class="modes"><button data-mode="ask" title="Questions about how the code works">Ask</button><button data-mode="change" title="Describe a change in your own words; get a precise request to hand to a coding agent">Draft change</button><span id="modeHelp" class="help"></span></div>
         <div id="chipBox"></div>
+        <div id="atts"></div>
         <div class="crow">
-          <textarea id="q" rows="1" placeholder="Ask about this code…  (Enter to send)"></textarea>
+          <textarea id="q" rows="1" placeholder="Ask about this code…  (Enter to send, paste screenshots)"></textarea>
           <button id="sendBtn" class="primary">Ask</button>
         </div>
       </div>
@@ -1350,7 +1360,8 @@ function updateJump() {
 }
 
 function msgHTML(m) {
-  if (m.role === "user") return (m.ctx ? `<span class="ctx">${linkify(" " + esc(m.ctx)).slice(1)}</span>` : "") + esc(m.text);
+  if (m.role === "user") return (m.imgs && m.imgs.length ? `<div class="msg-imgs">${m.imgs.map(p => `<a href="${esc(pasteURL(p))}" target="_blank" rel="noopener"><img src="${esc(pasteURL(p))}" alt="pasted image"></a>`).join("")}</div>` : "") +
+    (m.ctx ? `<span class="ctx">${linkify(" " + esc(m.ctx)).slice(1)}</span>` : "") + esc(m.text);
   let h = "";
   if (m.tools && m.tools.length) h += `<div class="tools">${m.tools.map(t => `<div>${esc(t)}</div>`).join("")}</div>`;
   if (m.text) h += md(m.text);
@@ -1416,11 +1427,14 @@ async function ask(question, ctx, shown) {
   if (!S.root) { openModal(); return; }
   ctx = ctx || S.chip;
   S.chip = null; renderChip();
-  const um = { role: "user", text: shown ? "✎ Change: " + shown : question, ctx: ctxLabel(ctx) };
+  const imgs = S.atts.filter(a => a.path).map(a => a.path);
+  S.atts = []; renderAtts();
+  const um = { role: "user", text: shown ? "✎ Change: " + shown : question, ctx: ctxLabel(ctx), imgs };
   const am = { role: "assistant", text: "", tools: [], pending: true };
   S.chat.msgs.push(um, am);
   renderChat("question");
-  await stream(am, buildPrompt(question, ctx), true);
+  const pics = imgs.length ? `[Attached images] I pasted ${imgs.length === 1 ? "a screenshot" : imgs.length + " screenshots"}. Open ${imgs.length === 1 ? "it" : "each"} with the Read tool before answering, and connect what it shows to the code:\n${imgs.map(p => "- " + p).join("\n")}\n\n` : "";
+  await stream(am, pics + buildPrompt(question, ctx), true);
 }
 
 async function stream(am, prompt, mayRetry) {
@@ -1510,18 +1524,52 @@ function setMode(m) {
   $$(".modes [data-mode]").forEach(b => b.classList.toggle("on", b.dataset.mode === m));
   $("#q").placeholder = m === "change"
     ? "Describe the change in your own words, e.g. “search feels slow”…  (Enter to send)"
-    : "Ask about this code…  (Enter to send)";
+    : "Ask about this code…  (Enter to send, paste screenshots)";
   $("#modeHelp").textContent = m === "change" ? "You get: how it works now, options, and a request to copy into a coding agent" : "";
   setBusy();
 }
 $(".modes").addEventListener("click", e => { const b = e.target.closest("[data-mode]"); if (b) { setMode(b.dataset.mode); $("#q").focus(); } });
 function startChange(ctx) { S.chip = ctx; renderChip(); setMode("change"); $("#q").focus(); }
 
+// Pasted or dropped images: saved by the server, sent to the assistant as file
+// paths it opens with its Read tool, and shown as thumbnails in the chat.
+S.atts = [];
+const pasteURL = p => `/api/raw?root=${encodeURIComponent(S.root || "/")}&path=${encodeURIComponent(p)}&t=${B.token}`;
+function renderAtts() {
+  $("#atts").innerHTML = S.atts.map((a, i) => a.path
+    ? `<div class="att"><img src="${esc(pasteURL(a.path))}" alt=""><button class="ghost" data-i="${i}" title="Remove">✕</button></div>`
+    : `<div class="att loading">${a.error ? "failed" : "…"}</div>`).join("");
+}
+async function addImages(files) {
+  for (const f of files) {
+    if (!/^image\//.test(f.type)) continue;
+    const a = {}; S.atts.push(a); renderAtts();
+    try {
+      const r = await fetch("/api/paste", { method: "POST", headers: { "X-Token": B.token, "Content-Type": "application/octet-stream" }, body: f });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || r.statusText);
+      a.path = j.path;
+    } catch (err) { a.error = err.message; setTimeout(() => { S.atts = S.atts.filter(x => x !== a); renderAtts(); }, 2500); }
+    renderAtts();
+  }
+}
+$("#atts").addEventListener("click", e => { const b = e.target.closest("button[data-i]"); if (b) { S.atts.splice(+b.dataset.i, 1); renderAtts(); } });
+$("#q").addEventListener("paste", e => {
+  const files = [...(e.clipboardData?.files || [])].filter(f => f.type.startsWith("image/"));
+  if (files.length) { e.preventDefault(); addImages(files); }
+});
+const composer = $(".composer");
+composer.addEventListener("dragover", e => { if ([...e.dataTransfer.types].includes("Files")) { e.preventDefault(); composer.classList.add("drop"); } });
+composer.addEventListener("dragleave", () => composer.classList.remove("drop"));
+composer.addEventListener("drop", e => { composer.classList.remove("drop"); if (e.dataTransfer.files.length) { e.preventDefault(); addImages([...e.dataTransfer.files]); } });
+
 function send() {
   if (S.busy) { if (S.abort) S.abort.abort(); return; }
   const q = $("#q");
-  const v = q.value.trim();
-  if (!v) return;
+  let v = q.value.trim();
+  if (S.atts.some(a => !a.path && !a.error)) return; // still uploading
+  if (!v && !S.atts.some(a => a.path)) return;
+  if (!v) v = "What am I looking at in this screenshot, and which code is behind it?";
   q.value = ""; autosize();
   ask(S.mode === "change" ? CHANGE_PROMPT.replace("QUESTION", v) : v, null, S.mode === "change" ? v : null);
 }
@@ -1530,7 +1578,21 @@ $("#msgs").addEventListener("scroll", updateJump, { passive: true });
 $("#jump").onclick = () => { const b = $("#msgs"); b.scrollTo({ top: b.scrollHeight, behavior: "smooth" }); };
 const autosize = () => { const q = $("#q"); q.style.height = "auto"; q.style.height = Math.min(200, q.scrollHeight) + "px"; };
 $("#q").addEventListener("input", autosize);
+// Ctrl+A: start of line. Ctrl+E or Ctrl+B: end of line. Shift extends the selection.
+function lineJump(ta, toEnd, extend) {
+  const v = ta.value, pos = ta.selectionDirection === "backward" ? ta.selectionStart : ta.selectionEnd;
+  let to;
+  if (toEnd) { to = v.indexOf("\n", pos); if (to < 0) to = v.length; }
+  else to = v.lastIndexOf("\n", pos - 1) + 1;
+  if (!extend) { ta.setSelectionRange(to, to); return; }
+  const anchor = ta.selectionDirection === "backward" ? ta.selectionEnd : ta.selectionStart;
+  ta.setSelectionRange(Math.min(anchor, to), Math.max(anchor, to), to < anchor ? "backward" : "forward");
+}
 $("#q").addEventListener("keydown", e => {
+  if (e.ctrlKey && !e.metaKey && !e.altKey) {
+    const k = e.key.toLowerCase();
+    if (k === "a" || k === "e" || k === "b") { e.preventDefault(); lineJump(e.target, k !== "a", e.shiftKey); return; }
+  }
   if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); }
 });
 $("#msgs").addEventListener("click", e => {
@@ -1629,8 +1691,9 @@ for (const w of ["side", "chat"]) { const v = store.get("w-" + w, null); if (v) 
 document.addEventListener("keydown", e => {
   const mod = e.metaKey || e.ctrlKey;
   if (e.key === "Escape") { closePop(); if (S.root) closeModal(); }
-  if (e.altKey && e.key === "ArrowLeft") { e.preventDefault(); goBack(); }
-  if (e.altKey && e.key === "ArrowRight") { e.preventDefault(); goFwd(); }
+  const typing = e.target.closest && e.target.closest("input, textarea, select, [contenteditable]");
+  if (e.altKey && e.key === "ArrowLeft" && !typing) { e.preventDefault(); goBack(); }
+  if (e.altKey && e.key === "ArrowRight" && !typing) { e.preventDefault(); goFwd(); }
   if (mod && !e.shiftKey && e.key.toLowerCase() === "p") { e.preventDefault(); setTab("files"); $("#filter").focus(); $("#filter").select(); }
   if (mod && e.shiftKey && e.key.toLowerCase() === "f") { e.preventDefault(); setTab("search"); $("#searchQ").focus(); $("#searchQ").select(); }
 });

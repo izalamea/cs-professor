@@ -30,6 +30,9 @@ It opens http://localhost:7777. Use the repo button at the top left to switch to
 - ⌘/Ctrl-click a name to jump to its definition, even into the standard library or a
   dependency. Alt+← goes back.
 - Markdown files and Jupyter notebooks open rendered (toggle Preview / Source).
+- Paste (or drop) screenshots into the chat box; the assistant looks at them alongside the code.
+  They're saved in your user cache folder (`~/Library/Caches/coderead/pastes` on macOS).
+- Chat box: Option/Alt+←/→ jumps words, Ctrl+A / Ctrl+E (or Ctrl+B) go to the start / end of the line.
 - ⌘P filters files, ⌘⇧F searches the repo.
 
 Files: `analyze.go` (Go type-checking), `lsp.go` (a small Language Server Protocol client),
