@@ -657,6 +657,10 @@ func (s *server) handleAsk(w http.ResponseWriter, r *http.Request) {
 		"-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
 		"--tools", "Read,Grep,Glob",
 		"--allowedTools", "Read,Grep,Glob",
+		// The tutor only reads files. Without this, every MCP server in the user's
+		// Claude Code config loads, and a large config pushes each request past the
+		// model's context limit ("Prompt is too long").
+		"--strict-mcp-config",
 		"--permission-prompts", "none",
 		"--append-system-prompt", fmt.Sprintf(tutorPrompt, s.gorootSrc, s.modcache),
 		"--add-dir", s.gorootSrc,
@@ -996,7 +1000,7 @@ Reply with only a JSON array of 4 objects: {"label": "link text, at most 7 words
 
 	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, s.claude, "-p", "--model", "haiku", "--tools", "",
+	cmd := exec.CommandContext(ctx, s.claude, "-p", "--model", "haiku", "--tools", "", "--strict-mcp-config",
 		"--no-session-persistence", "--output-format", "text")
 	cmd.Dir = root
 	cmd.Stdin = strings.NewReader(prompt)
